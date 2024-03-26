@@ -2,7 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from function import simulate
-from sim_function_test import simulate_TEST
 
 include_all = True
 runs = 10
