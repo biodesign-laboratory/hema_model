@@ -135,7 +135,7 @@ end
 #queue is a vector (array) of tuples == (Interval, Integer, Float) for (initial interval, loc, time)
 #major_queue is an array of vectors of tuples of the same type listed above
 queue = Vector{Tuple{LazySets.Interval, Integer, Float64}}(undef, 1)
-major_queue = Vector{Tuple{LazySets.Interval, Integer, Float64}}
+major_queue = Vector{Tuple{LazySets.Interval, Integer, Float64}}[]
 #major_queue = Array{Tuple{LazySets.Interval, Integer, Float64}}(undef, 2, 2)
 res = Vector{Tuple{LazySet, Float64}}[]
 
