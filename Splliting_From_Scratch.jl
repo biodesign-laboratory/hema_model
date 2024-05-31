@@ -28,7 +28,7 @@ function plot_res(res)
 
     #fill the sets with each value from the result vector
     for i in eachindex(res)
-        interval, time = res[i][1]
+        interval, time = res[i]
         push!(times, time)
         push!(lower_bound, min(interval))
         push!(upper_bound, max(interval))
@@ -41,20 +41,22 @@ end
 
 function run_reach(δ, queue, T, guard)
     #initialize the two queus that will compose of the intervals below and equal to or above the initial interval
-    queue_1 = Tuple{LazySets.Interval{Float64}, Int64, Float64}[]
-    queue_2 = Tuple{LazySets.Interval{Float64}, Int64, Float64}[]
-    res = Tuple{LazySet, Float64}[]
+    queue_1 = Tuple{LazySets.Interval, Integer, Float64}
+    queue_2 = Tuple{LazySets.Interval, Integer, Float64}
+    res = Tuple{LazySet, Float64}
     init, loc, t = pop!(queue)
 
     #run the initial interval in the continuous function
-    R = reach_continuous(loc, init, δ, T-t)
+    R = reach_continuous(loc, init, δ, T, t)
     for i in eachindex(R)
         #Takes each set from t -> T in the continuous state and adds it to S
         #Checks each set to see if it intersects the guard
+        τ = T - t
         S, t = R[i]
         
         #Push the specific set of states S at time t to the result
-        push!(res, (S, t))
+        #push!(res, (S, t))
+        res = (S, t)
         if !isdisjoint(S, guard)
             new_t = t + δ * (i + 1)
            
@@ -67,15 +69,17 @@ function run_reach(δ, queue, T, guard)
             S_upper_bound = S - C_upper_bound
             U = LazySets.Interval(min(S_middle), max(S_upper_bound))
             L = S_lower_bound
-            push!(queue_1, (L, 1, new_t))
-            push!(queue_2, (U, 2, new_t))
+            queue_1 = (L, 1, new_t)
+            queue_2 = (U, 2, new_t)
+            #push!(queue_1, (L, 1, new_t))
+            #push!(queue_2, (U, 2, new_t))
             break
         end
     end
     return (queue_1, queue_2, res)
 end
 
-function reach_continuous(loc, init, δ, T)
+function reach_continuous(loc, init, δ, T_max, t_0)
     #δ is the time step
     #loc in the mode or "location"
     #T is the max time
@@ -83,7 +87,8 @@ function reach_continuous(loc, init, δ, T)
     #Returns a set of states at time t for each T/δ until T is reached
 
     #discretize the system
-    N = floor(Int, T/δ)
+    τ = T_max - t_0
+    N = floor(Int, τ/δ)
     D = [-0.01]
     r = [1.0]
 
@@ -93,20 +98,21 @@ function reach_continuous(loc, init, δ, T)
 
     #Set the mode
     if loc == 1
-        E = 3;
+        E = 1;
     elseif loc == 2
-        E = 2;
+        E = -1;
     end
     
     # preallocate array
+    #if N == 0 is the stopping criteria
     # R = Vector{Integer}(undef, N)
-    R = Vector{Tuple{LazySet, Float64}}(undef, N)
-    if N == 0
+    R = Vector{Tuple{LazySet, Float64}}(undef, 1)
+    R[1] = (init, t_0)
+    if N < 0.01
         return R
     end
 
     #R[1] = Vector{Tuple{LazySets.MinkowskiSum, Float64}}
-    R[1] = (init, 0.0)
     #R[1] = init
     for i in 2:N
         #Translate and scale our initial set based on our mode and system dynamics
@@ -117,9 +123,9 @@ function reach_continuous(loc, init, δ, T)
         #Take the derivatives and do a linear approximation to get the set of values at that time
         dHdt = dHdt * N
         translation_vector = translation_vector * i * E
-        time = i * δ
+        time = (i * δ) + t_0
         H_stable = LazySets.translate(H_stable, translation_vector)
-        R[i] = (H_stable, time)
+        push!(R, (H_stable, time))
     end
     return R
 end
@@ -135,25 +141,31 @@ end
 #queue is a vector (array) of tuples == (Interval, Integer, Float) for (initial interval, loc, time)
 #major_queue is an array of vectors of tuples of the same type listed above
 queue = Vector{Tuple{LazySets.Interval, Integer, Float64}}(undef, 1)
-major_queue = Vector{Tuple{LazySets.Interval, Integer, Float64}}[]
+#queue = Tuple{LazySets.Interval, Integer, Float64}
+#major_queue = Vector{Tuple{LazySets.Interval, Integer, Float64}}
 #major_queue = Array{Tuple{LazySets.Interval, Integer, Float64}}(undef, 2, 2)
-res = Vector{Tuple{LazySet, Float64}}[]
+res = Vector{Tuple{LazySet, Float64}}(undef, 1)
 
 #Time step, overall time, guard, starting interval
 δ = 0.01
 T = 4.
-guard = LazySets.Interval(0.5, 1.0);
-init = LazySets.Interval(0.0, 5.0);
+guard = LazySets.Interval(100, 110)
+init = LazySets.Interval(0.0, 5.0)
 
 #initialize first queue with the initial interval, mode, and time
-queue = (init, 1, 0.0);
-push!(major_queue, [queue])
+queue[1] = (init, 1, 0.0)
+init, loc, t = queue[1]
+res[1] = (init, t)
+#push!(major_queue, [queue])
 
-while !isempty(major_queue)
+while !isempty(queue)
     #Takes latest entry in the major_queue
-    queue = pop!(major_queue)
-    init, loc, t = queue[1]
-
+    #queue = pop!(major_queue)
+    global init
+    global loc
+    global t
+    global queue
+    global res
     #only run if the time has not exceeded the max time
     if t < 3.9
         queue_immediate = run_reach(δ, queue, T, guard)
@@ -165,8 +177,9 @@ while !isempty(major_queue)
     push!(res, queue_immediate[3])
     
     #add the two new queues to the major queue
-    push!(major_queue, queue_immediate[1])
-    push!(major_queue, queue_immediate[2])
+    push!(queue, queue_immediate[1])
+    push!(queue, queue_immediate[2])
+    init, loc, t = pop!(queue)
 end
 
 
