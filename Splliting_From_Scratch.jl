@@ -19,28 +19,44 @@ Right now, the script is producing a set of intervals where the upperbound is si
 First queue is coming back undefined
 =#
 
+function plot_res(res)
+    #initialize the plot, set of times, set of upper_bounds, and set of lower_bounds
+    p = plot()
+    times = Float64[]
+    upper_bound = Float64[]
+    lower_bound = Float64[]
+
+    #fill the sets with each value from the result vector
+    for i in eachindex(res)
+        interval, time = res[i][1]
+        push!(times, time)
+        push!(lower_bound, min(interval))
+        push!(upper_bound, max(interval))
+    end
+
+    #plot the upper and lower sets vs time and connect the two bounds
+    plot!(p, lower_bound, fillrange = upper_bound, c = 1)
+    return p
+end
 
 function run_reach(δ, queue, T, guard)
     #initialize the two queus that will compose of the intervals below and equal to or above the initial interval
-    queue_1 = Vector{Tuple{LazySets.Interval, Integer, Float64}}(undef, 1)
-    queue_2 = Vector{Tuple{LazySets.Interval, Integer, Float64}}(undef, 1)
+    queue_1 = Tuple{LazySets.Interval{Float64}, Int64, Float64}[]
+    queue_2 = Tuple{LazySets.Interval{Float64}, Int64, Float64}[]
     res = Tuple{LazySet, Float64}[]
     init, loc, t = pop!(queue)
 
     #run the initial interval in the continuous function
     R = reach_continuous(loc, init, δ, T-t)
-    for i in 1:length(R)-1
+    for i in eachindex(R)
         #Takes each set from t -> T in the continuous state and adds it to S
         #Checks each set to see if it intersects the guard
         S, t = R[i]
-        #S[2] = S[2] + t
         
         #Push the specific set of states S at time t to the result
-        #The way this is pushing t is incorrect!!!!!
         push!(res, (S, t))
-        #push!(res, S)
         if !isdisjoint(S, guard)
-            new_t = t + δ * i
+            new_t = t + δ * (i + 1)
            
             #intersection of S and guard and splits it then concatenates it
             C = intersection(S, guard)
@@ -100,25 +116,33 @@ function reach_continuous(loc, init, δ, T)
         
         #Take the derivatives and do a linear approximation to get the set of values at that time
         dHdt = dHdt * N
-        H_stable_temp = +(dHdt, H_stable)
+        translation_vector = translation_vector * i * E
         time = i * δ
-        #R[i] = Vector{Tuple{LazySets.MinkowskiSum, Float64}}
-        R[i] = (H_stable_temp, time)
-        #R[i] = H_stable_temp
+        H_stable = LazySets.translate(H_stable, translation_vector)
+        R[i] = (H_stable, time)
     end
     return R
 end
 
+
+
+
+
+
+#Main
 #run the major_queue over and over again until the time limit is reached
 #declare the major queue and the queue and the res
+#queue is a vector (array) of tuples == (Interval, Integer, Float) for (initial interval, loc, time)
+#major_queue is an array of vectors of tuples of the same type listed above
 queue = Vector{Tuple{LazySets.Interval, Integer, Float64}}(undef, 1)
-major_queue = Vector{Tuple{LazySets.Interval, Integer, Float64}}[]
+major_queue = Vector{Tuple{LazySets.Interval, Integer, Float64}}
+#major_queue = Array{Tuple{LazySets.Interval, Integer, Float64}}(undef, 2, 2)
 res = Vector{Tuple{LazySet, Float64}}[]
 
 #Time step, overall time, guard, starting interval
 δ = 0.01
 T = 4.
-guard = LazySets.Interval(3.0, 100.0);
+guard = LazySets.Interval(0.5, 1.0);
 init = LazySets.Interval(0.0, 5.0);
 
 #initialize first queue with the initial interval, mode, and time
@@ -128,9 +152,9 @@ push!(major_queue, [queue])
 while !isempty(major_queue)
     #Takes latest entry in the major_queue
     queue = pop!(major_queue)
-    init, loc, t = pop!(copy(queue))
+    init, loc, t = queue[1]
 
-    #only run if the time has exceeded the max time
+    #only run if the time has not exceeded the max time
     if t < 3.9
         queue_immediate = run_reach(δ, queue, T, guard)
     else
@@ -143,26 +167,6 @@ while !isempty(major_queue)
     #add the two new queues to the major queue
     push!(major_queue, queue_immediate[1])
     push!(major_queue, queue_immediate[2])
-end
-
-function plot_res(res)
-    #initialize the plot, set of times, set of upper_bounds, and set of lower_bounds
-    p = plot()
-    times = Float64[]
-    upper_bound = Float64[]
-    lower_bound = Float64[]
-
-    #fill the sets with each value from the result vector
-    for i in eachindex(res)
-        interval, time = res[i][1]
-        push!(times, time)
-        push!(lower_bound, min(interval))
-        push!(upper_bound, max(interval))
-    end
-
-    #plot the upper and lower sets vs time and connect the two bounds
-    plot!(p, lower_bound, fillrange = upper_bound, c = 1)
-    return p
 end
 
 
