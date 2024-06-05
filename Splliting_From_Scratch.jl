@@ -35,44 +35,75 @@ function plot_res(res)
     end
 
     #plot the upper and lower sets vs time and connect the two bounds
-    plot!(p, lower_bound, fillrange = upper_bound, c = 1)
+    #plot!(p, times, lower_bound, fillrange = upper_bound, c = 1)
+    #plot the intervals vs time and connect the bounds
+    plot!(p, times, lower_bound, ribbon=(upper_bound .- lower_bound), fillalpha=0.3, label="Interval bounds")
+    xlabel!("Time")
+    ylabel!("Interval")
+    title!("Intervals vs Time")
+    print(res)
     return p
 end
 
-function run_reach(δ, queue, T, guard)
+function run_reach(δ, local_queue, T, guard)
     #initialize the two queus that will compose of the intervals below and equal to or above the initial interval
-    queue_1 = Tuple{LazySets.Interval, Integer, Float64}
-    queue_2 = Tuple{LazySets.Interval, Integer, Float64}
-    res = Tuple{LazySet, Float64}
-    init, loc, t = pop!(queue)
+    #queue_1 = Tuple{LazySets.Interval, Integer, Float64}
+    #queue_2 = Tuple{LazySets.Interval, Integer, Float64}
+    res = Vector{Tuple{LazySet, Float64}}(undef, 1)
+    queue_1 = (LazySets.Interval(0.0, 1.0), 1, 0.0)
+    queue_2 = (LazySets.Interval(0.0, 1.0), 1, 0.0)
+    init, loc, t = last(local_queue)
 
     #run the initial interval in the continuous function
     R = reach_continuous(loc, init, δ, T, t)
+    res[1] = (init, t)
     for i in eachindex(R)
         #Takes each set from t -> T in the continuous state and adds it to S
         #Checks each set to see if it intersects the guard
         τ = T - t
-        S, t = R[i]
+        S, t = R[i + 1]
         
         #Push the specific set of states S at time t to the result
-        #push!(res, (S, t))
-        res = (S, t)
+        push!(res, (S, t))
+        #res = (S, t)
         if !isdisjoint(S, guard)
-            new_t = t + δ * (i + 1)
-           
+            new_t = R[i + 1][2] + δ
+            L = LazySets.Interval(0.0, 1.0)
+            U = LazySets.Interval(0.0, 1.0)
+
+
+
             #intersection of S and guard and splits it then concatenates it
-            C = intersection(S, guard)
-            C_lower_bound = LazySets.Interval(min(C),10^10)
-            C_upper_bound = LazySets.Interval(-10^10,max(C))
-            S_lower_bound = S - C_lower_bound
-            S_middle = C
-            S_upper_bound = S - C_upper_bound
-            U = LazySets.Interval(min(S_middle), max(S_upper_bound))
-            L = S_lower_bound
-            queue_1 = (L, 1, new_t)
-            queue_2 = (U, 2, new_t)
-            #push!(queue_1, (L, 1, new_t))
-            #push!(queue_2, (U, 2, new_t))
+            # Part below g
+            #if low(S) < low(guard)
+            #    L = LazySets.Interval(low(S)[1], prevfloat(low(guard)[1]))
+            #else
+                #something that just pushes U (bc greater than or equal to)
+            #end
+
+            # Part above g
+            if high(S) > high(guard) && low(S) > low(guard) || high(S) < high(guard) && low(S) > low(guard)
+                U = S
+                queue_2 = (U, 2, new_t)
+                queue_1 = queue_2
+            elseif low(S) < low(guard)
+                L = LazySets.Interval(low(S)[1], prevfloat(low(guard)[1]))
+                U = LazySets.Interval(nextfloat(high(S)[1]), high(guard)[1])
+                queue_2 = (U, 2, new_t)
+                queue_1 = (L, 1, new_t)
+            end
+
+
+
+            #queue_1 = (L, 1, new_t)
+            #queue_2 = (U, 2, new_t)
+            #=  if the low of S is not lower than the low of the guard 
+                then the whole of S needs to be in the new mode (bc it is
+                greater than or equal to).
+            =#
+            break
+        end
+        if i == length(R) - 1
             break
         end
     end
@@ -132,9 +163,6 @@ end
 
 
 
-
-
-
 #Main
 #run the major_queue over and over again until the time limit is reached
 #declare the major queue and the queue and the res
@@ -166,6 +194,9 @@ while !isempty(queue)
     global t
     global queue
     global res
+
+    init, loc, t = last(queue)
+
     #only run if the time has not exceeded the max time
     if t < 3.9
         queue_immediate = run_reach(δ, queue, T, guard)
@@ -173,13 +204,21 @@ while !isempty(queue)
         break
     end
     
+    pop!(queue)
+
     #Add the resulting set of states and their times to the result tuple
-    push!(res, queue_immediate[3])
+    for i in eachindex(queue_immediate[3])
+        push!(res, queue_immediate[3][i])
+    end
     
     #add the two new queues to the major queue
-    push!(queue, queue_immediate[1])
-    push!(queue, queue_immediate[2])
-    init, loc, t = pop!(queue)
+    #checks if the queues are equal from the logic in the function
+    if queue_immediate[1][1] != queue_immediate[2][1]
+        push!(queue, queue_immediate[1])
+        push!(queue, queue_immediate[2])
+    elseif queue_immediate[1][1] != LazySets.Interval(0.0, 1.0) && queue_immediate[2][1] != LazySets.Interval(0.0, 1.0)
+        push!(queue, queue_immediate[2])
+    end
 end
 
 
