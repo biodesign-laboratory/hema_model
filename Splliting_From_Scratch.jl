@@ -12,11 +12,6 @@ list of queues (i.e. the major_queue). The process then restarts, running each o
 the time T has been reached for all of them.
 
 Problems:
-The set propogation is done via linear maps and translations of the intervals. Unsure if this is the most accurate way to do this
-The major_queue is full of of queues all at different times t. May be more efficient to attempt to combine these queues
-when the time t is the same.
-Right now, the script is producing a set of intervals where the upperbound is simply a different magnitude of the time.
-First queue is coming back undefined
 =#
 
 function plot_res(res)
@@ -131,7 +126,7 @@ function reach_continuous(loc, init, δ, T_max, t_0)
     if loc == 1
         E = 1;
     elseif loc == 2
-        E = -1;
+        E = -15;
     end
     
     # preallocate array
@@ -148,13 +143,15 @@ function reach_continuous(loc, init, δ, T_max, t_0)
     for i in 2:N
         #Translate and scale our initial set based on our mode and system dynamics
         translation_vector = r + D
-        dHdt = LazySets.translate(H_stable, translation_vector)
-        dHdt = dHdt * E
+        #dHdt = LazySets.translate(H_stable, translation_vector)
+        #dHdt = dHdt * E
         
         #Take the derivatives and do a linear approximation to get the set of values at that time
-        dHdt = dHdt * N
-        translation_vector = translation_vector * i * E
+        #dHdt = dHdt * N
+
+        #add up the translation vector i times and multiply by E similar to the dynamics above
         time = (i * δ) + t_0
+        translation_vector = translation_vector * E * i
         H_stable = LazySets.translate(H_stable, translation_vector)
         push!(R, (H_stable, time))
     end
@@ -163,32 +160,26 @@ end
 
 
 
-#Main
-#run the major_queue over and over again until the time limit is reached
-#declare the major queue and the queue and the res
-#queue is a vector (array) of tuples == (Interval, Integer, Float) for (initial interval, loc, time)
-#major_queue is an array of vectors of tuples of the same type listed above
+#=Main
+run the major_queue over and over again until the time limit is reached
+declare the major queue and the queue and the res, queue is a vector (array)
+of tuples == (Interval, Integer, Float) for (initial interval, loc, time) =#
 queue = Vector{Tuple{LazySets.Interval, Integer, Float64}}(undef, 1)
-#queue = Tuple{LazySets.Interval, Integer, Float64}
-#major_queue = Vector{Tuple{LazySets.Interval, Integer, Float64}}
-#major_queue = Array{Tuple{LazySets.Interval, Integer, Float64}}(undef, 2, 2)
 res = Vector{Tuple{LazySet, Float64}}(undef, 1)
 
 #Time step, overall time, guard, starting interval
 δ = 0.01
 T = 4.
-guard = LazySets.Interval(100, 110)
+guard = LazySets.Interval(90, 110)
 init = LazySets.Interval(0.0, 5.0)
 
 #initialize first queue with the initial interval, mode, and time
 queue[1] = (init, 1, 0.0)
 init, loc, t = queue[1]
 res[1] = (init, t)
-#push!(major_queue, [queue])
 
 while !isempty(queue)
     #Takes latest entry in the major_queue
-    #queue = pop!(major_queue)
     global init
     global loc
     global t
