@@ -37,7 +37,7 @@ function plot_res(res)
     xlabel!("Time")
     ylabel!("Interval")
     title!("Intervals vs Time")
-    print(res)
+    #print(res)
     return p
 end
 
@@ -58,6 +58,7 @@ function run_reach(δ, local_queue, T, guard)
         #Checks each set to see if it intersects the guard
         τ = T - t
         S, t = R[i + 1]
+        
         
         #Push the specific set of states S at time t to the result
         push!(res, (S, t))
@@ -171,7 +172,7 @@ res = Vector{Tuple{LazySet, Float64}}(undef, 1)
 #Time step, overall time, guard, starting interval
 δ = 0.01
 T = 0.5
-guard = LazySets.Interval(90, 110)
+guard = LazySets.Interval(105, 110)
 init = LazySets.Interval(0.0, 5.0)
 
 #initialize first queue with the initial interval, mode, and time

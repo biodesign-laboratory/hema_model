@@ -2,83 +2,9 @@ using IntervalArithmetic
 using LazySets
 using LinearAlgebra
 using Plots
-#=
-This is an algorithm to run reachability analysis on a hybrid system. The general premise is that you have a list of queues,
-each a vector (X, m, t) where X is the set of states at time t and m is the mode the set is being propogated under. X is 
-currently just a LazySets.Interval data type. When X intersects with the guard, the part that intersects with the guard goes
-into a new queue at the time t that it intersects and it switches to the other mode m. The part that doesn't intersect
-is also put into a queue at that time t, but with the mode m it had been running at. These two queues are then added to the
-list of queues (i.e. the major_queue). The process then restarts, running each of these queues one after the other, until 
-the time T has been reached for all of them.
-=#
 
-#Set Variables
-w = 0.0005
-P_crit = 2500
-A_crit = 1000
-t_half_leukocytes = 7
-t_half_P = 4.1375
-t_half_A = 7
-t_double_P = 15
-gamma = 0.0000001
-S_a = 1
-S_n = 1
-N_inf = 20000000
-S_PQ = 0.33
-S_PH = 0.01
-S_PS = 0.02
-S_AS = 0.04
-S_AH = 0.01
-S_AU = 0.33
-theta_ps = 10_000_000
-theta_ar = 10_000_000
-theta_AS = 10_000_000
-theta_UP = 10_000_000
-Immune_start = 500
-Active_start = 500
-Immune_crit = 2500
-Active_crit = 2500
-y = 0.0008
-d_s = 1/70
-d_p = 1/4
-d_a = 1/4
-d_q = 1/4
-d_u = 0.05
-g_N = 0.2
-K_PS = 0.7
-K_AQ = 0.7
-K_AS = 0.7
-K_PU = 0.7
-k_nq = 0.85
-k_ns = 0.2
-k_tn = 0.33
-
-H_0 = 1000
-N_0 = 0
-P_0 = 600
-A_0 = 1160
-T_0 = 7000
-a_0 = 0.00
-b_0 = 1
-e_0 = 0.00
-E_star_0 = 1
-
-H = H_0
-N = N_0
-P = P_0
-A = A_0
-T = T_0
-a = a_0
-b = b_0
-e = e_0
-E_star = E_star_0
-
-Q = a * T
-S = b * T
-U = e * T
-
-#= This version is going to have Pathogens as the changing variable,
-everything else will be fixed.=#
+#= This version has Pathogens as the changing variable,
+everything else is fixed=#
 
 function plot_res(res)
     #initialize the plot, set of times, set of upper_bounds, and set of lower_bounds
@@ -103,198 +29,197 @@ function plot_res(res)
     xlabel!("Time")
     ylabel!("Interval")
     title!("Intervals vs Time")
-    print(res)
+    #print(res)
     return p
 end
 
 function run_reach(δ, local_queue, T, guard)
     #initialize the two queus that will compose of the intervals below and equal to or above the initial interval
-    #queue_1 = Tuple{LazySets.Interval, Integer, Float64}
-    #queue_2 = Tuple{LazySets.Interval, Integer, Float64}
+    global rates
+    NaN_bool = false
     res = Vector{Tuple{LazySet, Float64}}(undef, 1)
     queue_1 = (LazySets.Interval(0.0, 1.0), 1, 0.0)
     queue_2 = (LazySets.Interval(0.0, 1.0), 1, 0.0)
     init, loc, t = last(local_queue)
 
     #run the initial interval in the continuous function
-    R = reach_continuous(loc, init, δ, T, t)
+    R, rate_times = reach_continuous(loc, init, δ, T, t)
     res[1] = (init, t)
     for i in eachindex(R)
         #Takes each set from t -> T in the continuous state and adds it to S
         #Checks each set to see if it intersects the guard
-        τ = T - t
-        S, t = R[i + 1]
+        S, t = R[i]
         
         #Push the specific set of states S at time t to the result
         push!(res, (S, t))
 
         #making a new S_temp to reflect that we aren't checking for P, but for a translated version of P
-        translation_vector = [S_n * N - S_a * A]
+        translation_vector = [get(rates, :S_n, undef)]
         S_temp = LazySets.translate(S, translation_vector)
+        S_temp = S
         if !isdisjoint(S_temp, guard)
-            new_t = R[i + 1][2] + δ
+            new_t = R[i][2] + δ
             L = LazySets.Interval(0.0, 1.0)
             U = LazySets.Interval(0.0, 1.0)
+            #print("this is S, ", S_temp)
+            #print("this is g, ", guard)
 
-
-
-            #intersection of S and guard and splits it then concatenates it
-            # Part below g
-            #if low(S) < low(guard)
-            #    L = LazySets.Interval(low(S)[1], prevfloat(low(guard)[1]))
-            #else
-                #something that just pushes U (bc greater than or equal to)
-            #end
-
-            # Part above g
             if low(S) > low(guard)
                 U = S
                 queue_2 = (U, 2, new_t)
                 queue_1 = queue_2
-            elseif low(S) < low(guard)
+            elseif low(S) < low(guard) && high(S) != high(guard)
                 L = LazySets.Interval(low(S)[1], prevfloat(low(guard)[1]))
-                U = LazySets.Interval(nextfloat(low(guard)[1]), high(S)[1])
+                U = LazySets.Interval(prevfloat(low(guard)[1]), nextfloat(high(S)[1]))
                     queue_2 = (U, 2, new_t)
                     queue_1 = (L, 1, new_t)
             end
 
-
-
-            #queue_1 = (L, 1, new_t)
-            #queue_2 = (U, 2, new_t)
-            #=  if the low of S is not lower than the low of the guard 
-                then the whole of S needs to be in the new mode (bc it is
-                greater than or equal to).
-            =#
+            #Return rate values to where they were at the time S hit the guard
+            rates[:H] = rate_times[1][i]
+            rates[:N_func] = rate_times[2][i]
+            rates[:A] = rate_times[3][i]
+            nodes[:S] = rate_times[4][i]
+            nodes[:Q] = rate_times[5][i]
+            nodes[:U] = rate_times[6][i]
+            NaN_bool = check_NaN(rates)
             break
         end
-        if i == length(R) - 1
+        if i == length(R)
             break
         end
     end
-    return (queue_1, queue_2, res)
+    return (queue_1, queue_2, res, NaN_bool)
 end
 
 function reach_continuous(loc, init, δ, T_max, t_0)
     #δ is the time step
-    #loc in the mode or "location"
+    #loc is the mode or "location"
     #T is the max time
     #init is is the input set of states
     #Returns a set of states at time t for each T/δ until T is reached
-    w = 0.0005
-    P_crit = 2500
-    A_crit = 1000
-    t_half_leukocytes = 7
-    t_half_P = 4.1375
-    t_half_A = 7
-    t_double_P = 15
-    gamma = 0.0000001
-    S_a = 1
-    S_n = 1
-    N_inf = 20000000
-    S_PQ = 0.33
-    S_PH = 0.01
-    S_PS = 0.02
-    S_AS = 0.04
-    S_AH = 0.01
-    S_AU = 0.33
-    theta_ps = 10_000_000
-    theta_ar = 10_000_000
-    theta_AS = 10_000_000
-    theta_UP = 10_000_000
-    Immune_start = 500
-    Active_start = 500
-    Immune_crit = 2500
-    Active_crit = 2500
-    y = 0.0008
-    d_s = 1/70
-    d_p = 1/4
-    d_a = 1/4
-    d_q = 1/4
-    d_u = 0.05
-    g_N = 0.2
-    K_PS = 0.7
-    K_AQ = 0.7
-    K_AS = 0.7
-    K_PU = 0.7
-    k_nq = 0.85
-    k_ns = 0.2
-    k_tn = 0.33
-
-    H_0 = 1000
-    N_0 = 0
-    P_0 = 600
-    A_0 = 1160
-    T_0 = 7000
-    a_0 = 0.00
-    b_0 = 1
-    e_0 = 0.00
-    E_star_0 = 1
-
-    H = H_0
-    N = N_0
-    P = P_0
-    A = A_0
-    T = T_0
-    a = a_0
-    b = b_0
-    e = e_0
-    E_star = E_star_0
-
-    Q = a * T
-    S = b * T
-    U = e * T
+    global rates
+    global nodes
 
     #discretize the system
     τ = T_max - t_0
     N = floor(Int, τ/δ)
 
-    #Makes a list of H_stable values from the min to the max with 0.01 intervals
+    #Makes a list of P values from the min to the max with 0.01 intervals
     P_interval = init
+
+    #initialize time_rate bookkeeping vectors
+    rate_times = []
+
+    H_times = []
+    N_func_times = []
+    A_times = []
+    S_times = []
+    Q_times = []
+    U_times = []
+
+    push!(H_times, get(rates, :H, undef))
+    push!(N_func_times, get(rates, :N_func, undef))
+    push!(A_times, get(rates, :A, undef))
+    push!(S_times, get(nodes, :S, undef))
+    push!(Q_times, get(nodes, :Q, undef))
+    push!(U_times, get(nodes, :U, undef))
 
     #Set the mode
     if loc == 1
         E = 1
     elseif loc == 2
-        #This may need a try/catch sequence
-        #This is fixing the value that E takes on
-        E = 2 - (2/(1+exp(-1 * y * (LazySets.center(P_interval)[1] + S_n * N - S_a * A - P_crit))))
+        E = 2 - (2/(1+exp(-1 * get(rates, :y, undef) * (LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef) - get(rates, :P_crit, undef)))))
     end
 
     if E < 0
         E = 0
     end
     
-    # preallocate array
+    #preallocate array
     #if N == 0 is the stopping criteria
     R = Vector{Tuple{LazySet, Float64}}(undef, 1)
     R[1] = (init, t_0)
-    if N < 0.01
+    if N < δ
         return R
     end
 
     for i in 2:N
+        #Time at each i
+        time = (i * δ) + t_0
+
         #Translate and scale our initial set based on our mode and system dynamics
         #add up the translation vector i times and multiply by E similar to the dynamics above
-        Renewal = (0.35 * ((LazySets.center(P_interval)[1] + S_n * N - S_a * A)/P_crit)) * H
-        D = (0.35*((LazySets.center(P_interval)[1] + S_n * N - S_a * A)/P_crit))*H
-        dE_star = -0.0005*(LazySets.center(P_interval)[1] + S_n*N - S_a*A - 1.5*P_crit)
-        H_stable = 0.05 * H * (1-(H/(E_star * H_0)))
-        A_l = (k_tn * N) * ((-2/(1 + exp(w * S))) + 1)
-        mu_SP = 0.5 * ((LazySets.center(P_interval)[1] + S_n*N - S_a*A - Active_start) / Active_crit) * S
-        mu_SA = 0.2 * ((LazySets.center(P_interval)[1] + S_n*N - S_a*A - Immune_start) / Immune_crit) * S
-        mu_UP = (U*(LazySets.center(P_interval)[1]+N)) / (theta_UP + U*(LazySets.center(P_interval)[1]+N))
-        D_P = d_p * LazySets.center(P_interval)[1]
-        D_A = d_a * A
-        D_S = d_s * S
-        D_Q = d_q * Q
-        D_U = d_u * U
+        Renewal = 0
+        if (LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef)) <= 0
+            Renewal = 0
+        elseif (LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef)) <=  get(rates, :P_crit, undef)
+            Renewal = (0.35 * ((LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef)/get(rates, :P_crit, undef)))) * get(rates, :H, undef)
+        elseif (LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef)) > get(rates, :P_crit, undef)
+            Renewal = (0.35 * get(rates, :H, undef))
+        end
 
-        #Rates
-        dHdt = E*(Renewal + H_stable) - D
-        dNdt = g_N*N - ((k_nq * Q) + (k_ns * S)) * (1-(N/N_inf))
-        dPdt = (S_PS * S) + (S_PQ * Q) + (S_PH * H) - D_P
-        dAdt = (S_AU * U) + (S_AS * S) + (S_AH * H) - D_A
+        D = 0
+        if (LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef)) <= 0
+            D = 0
+        elseif (LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef)) <=  get(rates, :P_crit, undef)
+            D = (0.35 * ((LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef))/get(rates, :P_crit, undef))) * get(rates, :H, undef)
+        elseif (LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef)) > get(rates, :P_crit, undef)
+            D = (0.35 * get(rates, :H, undef))
+        end
+
+        dE_star = 0
+        if (LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef)) <= (1.5 * get(rates, :P_crit, undef)) || get(rates, :E_star, undef) <= 0.1
+            dE_star = 0
+        else
+            dE_star = -0.0005 * (LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef) - 1.5 * get(rates, :P_crit, undef))
+        end
+
+        rates[:E_star] = rates[:E_star] + (dE_star * time)
+
+        if get(rates, :E_star, undef) * get(rates, :H_0, undef) > get(rates, :H, undef)
+            H_stable = 0.05 * get(rates, :H, undef) * (1 - (get(rates, :H, undef)/(get(rates, :E_star, undef) * get(rates, :H_0, undef))))
+        else
+            H_stable = 0
+        end
+
+        A_l = (get(rates, :k_tn, undef) * get(rates, :N_func, undef)) * ((-2/(1 + exp(get(rates, :w, undef) * get(nodes, :S, undef)))) + 1)
+
+        mu_SP = 0
+        if (LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef)) <= get(rates, :Active_start, undef)
+            mu_SP = 0
+        elseif (LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef)) <= get(rates, :Active_crit, undef)
+            mu_SP = 0.5 * ((LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef) - get(rates, :Active_start, undef)) / get(rates, :Active_crit, undef)) * get(nodes, :S, undef)
+        else
+            mu_SP = 0.5 * get(rates, S, undef)
+        end
+
+        mu_SA = 0
+        if (LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef)) <= get(rates, :Immune_start, undef)
+            mu_SA = 0
+        elseif (LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef)) <= get(rates, :Immune_crit, undef)
+            mu_SA = 0.2 * ((LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef) - get(rates, :Immune_start, undef)) / get(rates, :Immune_crit, undef)) * get(nodes, :S, undef)
+        else
+            mu_SA = 0.2 * get(rates, S, undef)
+        end
+
+        D_P = get(rates, :d_p, undef) * LazySets.center(P_interval)[1]
+
+        if get(rates, :A, undef) > 0
+            D_A = get(rates, :d_a, undef) * get(rates, :A, undef)
+        else
+            D_A = 0
+        end
+
+        D_S = get(rates, :d_s, undef) * get(nodes, :S, undef)
+        D_Q = get(rates, :d_q, undef) * get(nodes, :Q, undef)
+        D_U = get(rates, :d_u, undef) * get(nodes, :U, undef)
+
+        #Node rate calculations
+        dHdt = E * (Renewal + H_stable) - D
+        dNdt = get(rates, :g_N, undef) * get(rates, :N_func, undef) - ((get(rates, :k_nq, undef) * get(nodes, :Q, undef) + (get(rates, :k_ns, undef) * get(nodes, :S, undef))) * (1 - ((get(rates, :N_func, undef)/get(rates, :N_inf, undef)))))
+        dPdt = (get(rates, :S_PS, undef) * get(nodes, :S, undef)) + (get(rates, :S_PQ, undef) * get(nodes, :Q, undef)) + (get(rates, :S_PH, undef) * get(rates, :H, undef)) - D_P
+        dAdt = (get(rates, :S_AU, undef) * get(nodes, :U, undef)) + (get(rates, :S_AS, undef) * get(nodes, :S, rates)) + (get(rates, :S_AH, undef) * get(rates, :H, undef)) - D_A
         dSdt = D - A_l - D_S - mu_SA - mu_SP
         dQdt = mu_SP - D_Q
         dUdt = mu_SA - D_U
@@ -303,30 +228,51 @@ function reach_continuous(loc, init, δ, T_max, t_0)
         time = (i * δ) + t_0
         translation_vector = [dPdt] * time
 
-        H = (dHdt * time) + H
-        N = (dNdt * time) + N
-        A = (dAdt * time) + A
-        S = (dSdt * time) + S
-        Q = (dQdt * time) + Q
-        U = (dUdt * time) + U
+        rates[:H] = (dHdt * time) + get(rates, :H, undef)
+        rates[:N_func] = (dNdt * time) + get(rates, :N_func, undef)
+        rates[:A] = (dAdt * time) + get(rates, :A, undef)
+        nodes[:S] = (dSdt * time) + get(nodes, :S, undef)
+        nodes[:Q] = (dQdt * time) + get(nodes, :Q, undef)
+        nodes[:U] = (dUdt * time) + get(nodes, :U, undef)
+
+        
+        #Initialize these and append
+        push!(H_times, get(rates, :H, undef))
+        push!(N_func_times, get(rates, :N_func, undef))
+        push!(A_times, get(rates, :A, undef))
+        push!(S_times, get(nodes, :S, undef))
+        push!(Q_times, get(nodes, :Q, undef))
+        push!(U_times, get(nodes, :U, undef))
+        
+        rate_times = [H_times, N_func_times, A_times, S_times, Q_times, U_times]
 
         try
             P_interval = LazySets.translate(P_interval, translation_vector)
-        catch
-            break
+        catch err
+            if isa(err, AssertionError)
+                println("AssertionError: Attempted to access an index that is out of bounds. Error details: ", err)
+                push!(R, (P_interval, time))
+                break
+            else
+                rethrow(err)  # Rethrow the error if it is not a BoundsError
+                break
+            end
         end
 
-
+        #Hybrid dynamic
         if loc == 1
             E = 1
         elseif loc == 2
-            E = 2 - (2/(1+exp(-1 * y * (LazySets.center(P_interval)[1] + S_n * N - S_a * A - P_crit))))
+            E = 2 - (2/(1+exp(-1 * get(rates, :y, undef) * (LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef) - get(rates, :P_crit, undef)))))
         end
+    
         if E < 0
             E = 0
         end
 
         if high(P_interval)[1] > 1.0E+10
+            break
+        elseif low(P_interval)[1] == 0.0
             break
         end
         if low(P_interval)[1] < 0 && high(P_interval)[1] > 0
@@ -335,63 +281,134 @@ function reach_continuous(loc, init, δ, T_max, t_0)
             P_interval = LazySets.Interval(0.0, 0.0)
         end
         push!(R, (P_interval, time))
+        print(E)
     end
-    return R
+    return R, rate_times
+end
+
+function check_NaN(dict)
+    NaN_bool = false
+    for (key, value) in dict
+        if isnan(value)
+            NaN_bool = true
+        end
+    end
+    return NaN_bool
+end
+
+function main(queue, res, guard, T, δ)
+    while !isempty(queue)
+        #Takes last entry in the queue
+        init, loc, t = last(queue)
+    
+        #only run if the time has not exceeded the max time
+        if t < 3.9
+            queue_immediate = run_reach(δ, queue, T, guard)
+        else
+            break
+        end
+        
+        pop!(queue)
+    
+        #Add the resulting set of states and their times to the result tuple
+        for i in eachindex(queue_immediate[3])
+            push!(res, queue_immediate[3][i])
+        end
+        
+        #add the two new queues to the major queue
+        #checks if the queues are equal from the logic in the function
+        if queue_immediate[1][1] != queue_immediate[2][1]
+            push!(queue, queue_immediate[1])
+            push!(queue, queue_immediate[2])
+        elseif queue_immediate[1][1] != LazySets.Interval(0.0, 1.0) && queue_immediate[2][1] != LazySets.Interval(0.0, 1.0)
+            push!(queue, queue_immediate[2])
+        end
+
+        if queue_immediate[4] == true
+            break
+        end
+    end
 end
 
 
+#Set rates
+rates = Dict(
+        :w => 0.0005,
+        :P_crit => 2500,
+        :A_crit => 1000,
+        :t_half_leukocytes => 7,
+        :t_half_P => 4.1375,
+        :t_half_A => 7,
+        :t_double_P => 15,
+        :gamma => 0.0000001,
+        :S_a => 1,
+        :S_n => 1,
+        :N_inf => 20000000,
+        :S_PQ => 0.33,
+        :S_PH => 0.01,
+        :S_PS => 0.02,
+        :S_AS => 0.04,
+        :S_AH => 0.01,
+        :S_AU => 0.33,
+        :theta_ps => 10000000,
+        :theta_ar => 10000000,
+        :theta_AS => 10000000,
+        :theta_UP => 10000000,
+        :Immune_start => 500,
+        :Active_start => 500,
+        :Immune_crit => 2500,
+        :Active_crit => 2500,
+        :y => 2500,
+        :d_s => 1/70,
+        :d_p => 1/4,
+        :d_a => 1/4,
+        :d_q => 1/4,
+        :d_u => 0.05,
+        :g_N => 0.2,
+        :K_PS => 0.7,
+        :K_AQ => 0.7,
+        :K_PU => 0.7,
+        :K_AS => 0.7,
+        :k_nq => 0.85,
+        :k_ns => 0.2,
+        :k_tn => 0.33,
+        :H => 1000,
+        :N_func => 0.0,
+        :P => 600,
+        :A => 1160,
+        :T => 7000,
+        :a => 0.00,
+        :b => 1,
+        :e => 0.00,
+        :E_star => 1,
+        :H_0 => 1000,
+        :N_0 => 0.0,
+        :P_0 => 600,
+        :A_0 => 1160,
+        :T_0 => 7000,
+        :a_0 => 0.00,
+        :b_0 => 1,
+        :e_0 => 0.00,
+        :E_star_0 => 1
+    )
+nodes = Dict(
+    :Q => get(rates, :a, undef) * get(rates, :T, undef),
+    :S => get(rates, :b, undef) * get(rates, :T, undef),
+    :U => get(rates, :e, undef) * get(rates, :T, undef)
+)
 
-#=Main
-run the major_queue over and over again until the time limit is reached
-declare the major queue and the queue and the res, queue is a vector (array)
-of tuples == (Interval, Integer, Float) for (initial interval, loc, time) =#
+#Time step, overall time, guard, starting interval, queue and results
 queue = Vector{Tuple{LazySets.Interval, Integer, Float64}}(undef, 1)
 res = Vector{Tuple{LazySet, Float64}}(undef, 1)
-
-#Time step, overall time, guard, starting interval
 δ = 0.01
-T = 0.5
-guard = LazySets.Interval((P_crit - 5), (P_crit + 5))
-init = LazySets.Interval(500, 600)
+T = 4.
+guard = LazySets.Interval((get(rates, :P_crit, undef) - 5), (get(rates, :P_crit, undef) + 5))
+init = LazySets.Interval(1000, 1500)
 
 #initialize first queue with the initial interval, mode, and time
 queue[1] = (init, 1, 0.0)
 init, loc, t = queue[1]
 res[1] = (init, t)
 
-while !isempty(queue)
-    #Takes latest entry in the major_queue
-    global init
-    global loc
-    global t
-    global queue
-    global res
-
-    init, loc, t = last(queue)
-
-    #only run if the time has not exceeded the max time
-    if t < 3.9
-        queue_immediate = run_reach(δ, queue, T, guard)
-    else
-        break
-    end
-    
-    pop!(queue)
-
-    #Add the resulting set of states and their times to the result tuple
-    for i in eachindex(queue_immediate[3])
-        push!(res, queue_immediate[3][i])
-    end
-    
-    #add the two new queues to the major queue
-    #checks if the queues are equal from the logic in the function
-    if queue_immediate[1][1] != queue_immediate[2][1]
-        push!(queue, queue_immediate[1])
-        push!(queue, queue_immediate[2])
-    elseif queue_immediate[1][1] != LazySets.Interval(0.0, 1.0) && queue_immediate[2][1] != LazySets.Interval(0.0, 1.0)
-        push!(queue, queue_immediate[2])
-    end
-end
-
-
+main(queue, res, guard, T, δ)
 plot_res(res)
