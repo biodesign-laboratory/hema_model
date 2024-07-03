@@ -4,6 +4,7 @@ from SALib.sample import sobol as sobol_sample
 from SALib.analyze import sobol as sobol_analyze
 from SALib.test_functions import Ishigami
 from project_library import linear_sim
+import time
 
 # code block directly below is following SALib tutorial
 '''problem = {
@@ -28,7 +29,7 @@ print("Total-order:", Si['ST'])'''
 
 
 # -----------------------------------------------------------------------------------------------------------------
-# code block directly below is using linear_sim function to evaluate sensitivity on the IHD model 
+# code block directly below is using linear_sim function to evaluate sensitivity on the hema model 
 problem_IHD = {
     'num_vars': 22,
     'names': ['g_n', 'k_nq', 'k_ns', 'k_tn', 'w', 'p_crit', 's_pq', 's_ph', 's_ps', 's_as', 's_ah', 's_au', 
@@ -64,9 +65,22 @@ print("Shape of the generated sample: ", param_values_IHD.shape)
 print("First few samples:")
 print(param_values_IHD[:3])
 
-IHD_out = np.zeros((param_values_IHD.shape[0], 9))   # for this test, I'm only evaluating sensitivity on H(t)
+IHD_out = np.zeros((param_values_IHD.shape[0], 9))
 
+print("! Computations starting now !")
+start_time = time.time()
 for i, X in enumerate(param_values_IHD):
-    IHD_out[i] = linear_sim(init_values, X, 0.01, 200, [100], [5000])[:,-1]         # only grab time-series output of H(t)
 
+    IHD_out[i] = linear_sim(init_values, X, 0.01, 200, [100], [5000])[:, -1]        # for each function in the output data, grab only the last time-series data point
+
+end_time = time.time()
+elapsed_time = end_time - start_time
+print("Outputs generated for all input samples. Elapsed time: ", elapsed_time)
+
+# save input samples and output to external files to avoid having to calculate outputs for first experiment
+np.savetxt('input_samples.txt', param_values_IHD)
+np.savetxt('output_from_samples.txt', IHD_out)
+np.savetxt('elapsed_time.txt', np.array([elapsed_time]))
+
+# these will be saved in the SA folder ^^
 
