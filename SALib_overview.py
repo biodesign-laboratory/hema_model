@@ -61,8 +61,10 @@ problem_IHD = {
                [0, 20000]]
 }
 
+# init_values = [1000, 0, 4000, 0, 0.9, 0.1, 1800, 300, 1] # chosen mostly arbitrarily
+
 param_values_IHD = sobol_sample.sample(problem_IHD, 1024)
-print("Shape of the generated sample: ", param_values_IHD.shape)        # sanity check
+print("Shape of the generated sample: ", param_values_IHD.shape)
 print("First few samples:")
 print(param_values_IHD[:3])
 
@@ -82,13 +84,6 @@ for i, X in enumerate(param_values_IHD):
 end_time = time.time()
 elapsed_time = end_time - start_time
 print("Outputs generated for all input samples. Elapsed time: ", elapsed_time)
-
-# save input samples and output to external files to avoid having to calculate outputs for first experiment
-np.savetxt('input_samples.txt', param_values_IHD)
-np.savetxt('output_from_samples.txt', IHD_out)
-np.savetxt('elapsed_time.txt', np.array([elapsed_time]))
-
-# these will be saved in the SA folder ^^
 
 Si = sobol_analyze.analyze(problem_IHD, IHD_out)
 
