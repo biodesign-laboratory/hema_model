@@ -85,9 +85,41 @@ end_time = time.time()
 elapsed_time = end_time - start_time
 print("Outputs generated for all input samples. Elapsed time: ", elapsed_time)
 
-Si = sobol_analyze.analyze(problem_IHD, IHD_out)
 
-total_Si, first_Si, second_Si = Si.to_df()
-total_Si.to_csv('total_Si.to_csv', sep='\t')
-first_Si.to_csv('first_Si.to_csv', sep='\t')
-second_Si.to_csv('second_Si.to_csv', sep='\t')
+SI_H = sobol_analyze.analyze(problem_IHD, IHD_out[:,0]),    # sensitivity indices for H(t) (HSPCs)
+SI_N = sobol_analyze.analyze(problem_IHD, IHD_out[:,1]),    # sensitivity indices for N(t) (Pathogens)
+SI_S = sobol_analyze.analyze(problem_IHD, IHD_out[:,4]),    # sensitivity indices for S(t) (Stable cells)
+SI_Q = sobol_analyze.analyze(problem_IHD, IHD_out[:,5]),    # sensitivity indices for Q(t) (Active cells)
+SI_U = sobol_analyze.analyze(problem_IHD, IHD_out[:,6]),    # sensitivity indices for U(t) (Immuno-suppressive cells)
+SI_I = sobol_analyze.analyze(problem_IHD, IHD_out[:,8])     # sensitivity indices for I(t) (Net Inflammation)
+
+total_Si_H, first_Si_H, second_Si_H = SI_H.to_df()
+total_Si_N, first_Si_N, second_Si_N = SI_H.to_df()
+total_Si_S, first_Si_S, second_Si_S = SI_H.to_df()
+total_Si_Q, first_Si_Q, second_Si_Q = SI_H.to_df()
+total_Si_U, first_Si_U, second_Si_U = SI_H.to_df()
+total_Si_I, first_Si_I, second_Si_I = SI_H.to_df()
+
+total_Si_H.to_csv('total_Si_H.to_csv', sep='\t')
+first_Si_H.to_csv('first_Si_H.to_csv', sep='\t')
+second_Si_H.to_csv('second_Si_H.to_csv', sep='\t')
+
+total_Si_N.to_csv('total_Si_N.to_csv', sep='\t')
+first_Si_N.to_csv('first_Si_N.to_csv', sep='\t')
+second_Si_N.to_csv('second_Si_N.to_csv', sep='\t')
+
+total_Si_S.to_csv('total_Si_S.to_csv', sep='\t')
+first_Si_S.to_csv('first_Si_S.to_csv', sep='\t')
+second_Si_S.to_csv('second_Si_S.to_csv', sep='\t')
+
+total_Si_Q.to_csv('total_Si_Q.to_csv', sep='\t')
+first_Si_Q.to_csv('first_Si_Q.to_csv', sep='\t')
+second_Si_Q.to_csv('second_Si_Q.to_csv', sep='\t')
+
+total_Si_U.to_csv('total_Si_U.to_csv', sep='\t')
+first_Si_U.to_csv('first_Si_U.to_csv', sep='\t')
+second_Si_U.to_csv('second_Si_U.to_csv', sep='\t')
+
+total_Si_I.to_csv('total_Si_I.to_csv', sep='\t')
+first_Si_I.to_csv('first_Si_I.to_csv', sep='\t')
+second_Si_I.to_csv('second_Si_I.to_csv', sep='\t')
