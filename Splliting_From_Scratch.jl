@@ -19,6 +19,7 @@ function plot_res(res)
         push!(times, time)
         push!(lower_bound, min(interval))
         push!(upper_bound, max(interval))
+        #plot!(p, [time, time], [min(interval), max(interval)], fillrange=lower_bound, fillalpha=0.3, label="", color="blue", xlims=[0,1], ylims=[0,100000])
         plot!(p, [time, time], [min(interval), max(interval)], fillrange=lower_bound, fillalpha=0.3, label="", color="blue")
     end
 
@@ -49,35 +50,67 @@ function run_reach(δ, local_queue, T, guard)
         #Takes each set from t -> T in the continuous state and adds it to S
         #Checks each set to see if it intersects the guard
         S, t = R[i]
+
+        if low(S)[1] < 0 && high(S)[1] > 0
+            S = LazySets.Interval(0.0, high(U)[1])
+        elseif low(S)[1] < 0 && high(S)[1] < 0
+            S = LazySets.Interval(0.0, 0.0)
+        end
         
         #Push the specific set of states S at time t to the result
         push!(res, (S, t))
 
         #making a new S_temp to reflect that we aren't checking for P, but for a translated version of P
-        translation_vector = [get(rates, :S_n, undef)]
+        scaling_factor = get(rates, :S_n, undef) + rate_times[2][i]
+        S_temp = S * scaling_factor
+        translation_vector = [get(rates, :S_a, undef) * rate_times[3][i]]
         S_temp = LazySets.translate(S, translation_vector)
-        S_temp = S
         if !isdisjoint(S_temp, guard)
             new_t = R[i][2] + δ
             L = LazySets.Interval(0.0, 1.0)
             U = LazySets.Interval(0.0, 1.0)
-            #print("this is S, ", S_temp)
-            #print("this is g, ", guard)
 
-            if low(S) > low(guard)
-                U = S
+            if low(S_temp) > low(guard)
+                U = S_temp
+          
+                U = scale(1/scaling_factor, U)
+                U = LazySets.translate(U, -translation_vector)
+
+                if low(U)[1] < 0 && high(U)[1] > 0
+                    U = LazySets.Interval(0.0, high(U)[1])
+                elseif low(U)[1] < 0 && high(U)[1] < 0
+                    U = LazySets.Interval(0.0, 0.0)
+                end
+
                 queue_2 = (U, 2, new_t)
                 queue_1 = queue_2
-            elseif low(S) < low(guard) && high(S) != high(guard)
-                L = LazySets.Interval(low(S)[1], prevfloat(low(guard)[1]))
-                U = LazySets.Interval(prevfloat(low(guard)[1]), nextfloat(high(S)[1]))
-                    queue_2 = (U, 2, new_t)
-                    queue_1 = (L, 1, new_t)
+            elseif low(S_temp) < low(guard) && high(S_temp) != high(guard)
+                L = LazySets.Interval(low(S_temp)[1], prevfloat(low(guard)[1]))
+                U = LazySets.Interval(prevfloat(low(guard)[1]), nextfloat(high(S_temp)[1]))
+
+                U = scale(1/scaling_factor, U)
+                U = LazySets.translate(U, -translation_vector)
+                L = scale(1/scaling_factor, L)
+                L = LazySets.translate(L, -translation_vector)
+
+                if low(U)[1] < 0 && high(U)[1] > 0
+                    U = LazySets.Interval(0.0, high(U)[1])
+                elseif low(U)[1] < 0 && high(U)[1] < 0
+                    U = LazySets.Interval(0.0, 0.0)
+                end
+                if low(L)[1] < 0 && high(L)[1] > 0
+                    L = LazySets.Interval(0.0, high(L)[1])
+                elseif low(L)[1] < 0 && high(L)[1] < 0
+                    L = LazySets.Interval(0.0, 0.0)
+                end
+
+                queue_2 = (U, 2, new_t)
+                queue_1 = (L, 1, new_t)
             end
 
             #Return rate values to where they were at the time S hit the guard
             rates[:H] = rate_times[1][i]
-            rates[:N_func] = rate_times[2][i]
+            rates[:P] = rate_times[2][i]
             rates[:A] = rate_times[3][i]
             nodes[:S] = rate_times[4][i]
             nodes[:Q] = rate_times[5][i]
@@ -106,20 +139,20 @@ function reach_continuous(loc, init, δ, T_max, t_0)
     N = floor(Int, τ/δ)
 
     #Makes a list of P values from the min to the max with 0.01 intervals
-    P_interval = init
+    N_interval = init
 
     #initialize time_rate bookkeeping vectors
     rate_times = []
 
     H_times = []
-    N_func_times = []
+    P_times = []
     A_times = []
     S_times = []
     Q_times = []
     U_times = []
 
     push!(H_times, get(rates, :H, undef))
-    push!(N_func_times, get(rates, :N_func, undef))
+    push!(P_times, get(rates, :P, undef))
     push!(A_times, get(rates, :A, undef))
     push!(S_times, get(nodes, :S, undef))
     push!(Q_times, get(nodes, :Q, undef))
@@ -129,7 +162,7 @@ function reach_continuous(loc, init, δ, T_max, t_0)
     if loc == 1
         E = 1
     elseif loc == 2
-        E = 2 - (2/(1+exp(-1 * get(rates, :y, undef) * (LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef) - get(rates, :P_crit, undef)))))
+        E = 2 - (2/(1+exp(-1 * get(rates, :y, undef) * get(rates, :P, undef) + get(rates, :S_n, undef) * (LazySets.center(N_interval)[1] - get(rates, :S_a, undef) * get(rates, :A, undef) - get(rates, :P_crit, undef)))))
     end
 
     if E < 0
@@ -151,28 +184,28 @@ function reach_continuous(loc, init, δ, T_max, t_0)
         #Translate and scale our initial set based on our mode and system dynamics
         #add up the translation vector i times and multiply by E similar to the dynamics above
         Renewal = 0
-        if (LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef)) <= 0
+        if (get(rates, :P, undef) + get(rates, :S_n, undef) * LazySets.center(N_interval)[1] - get(rates, :S_a, undef) * get(rates, :A, undef)) <= 0
             Renewal = 0
-        elseif (LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef)) <=  get(rates, :P_crit, undef)
-            Renewal = (0.35 * ((LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef)/get(rates, :P_crit, undef)))) * get(rates, :H, undef)
-        elseif (LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef)) > get(rates, :P_crit, undef)
+        elseif (get(rates, :P, undef) + get(rates, :S_n, undef) * LazySets.center(N_interval)[1] - get(rates, :S_a, undef) * get(rates, :A, undef)) <= get(rates, :P_crit, undef)
+            Renewal = (0.35 * ((get(rates, :P, undef) + get(rates, :S_n, undef) * LazySets.center(N_interval)[1] - get(rates, :S_a, undef) * get(rates, :A, undef)/get(rates, :P_crit, undef)))) * get(rates, :H, undef)
+        elseif (get(rates, :P, undef) + get(rates, :S_n, undef) * LazySets.center(N_interval)[1] - get(rates, :S_a, undef) * get(rates, :A, undef)) > get(rates, :P_crit, undef)
             Renewal = (0.35 * get(rates, :H, undef))
         end
 
         D = 0
-        if (LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef)) <= 0
+        if (get(rates, :P, undef) + get(rates, :S_n, undef) * LazySets.center(N_interval)[1] - get(rates, :S_a, undef) * get(rates, :A, undef)) <= 0
             D = 0
-        elseif (LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef)) <=  get(rates, :P_crit, undef)
-            D = (0.35 * ((LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef))/get(rates, :P_crit, undef))) * get(rates, :H, undef)
-        elseif (LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef)) > get(rates, :P_crit, undef)
+        elseif (get(rates, :P, undef) + get(rates, :S_n, undef) * LazySets.center(N_interval)[1] - get(rates, :S_a, undef) * get(rates, :A, undef)) <= get(rates, :P_crit, undef)
+            D = (0.35 * ((get(rates, :P, undef) + get(rates, :S_n, undef) * LazySets.center(N_interval)[1] - get(rates, :S_a, undef) * get(rates, :A, undef))/get(rates, :P_crit, undef))) * get(rates, :H, undef)
+        elseif (get(rates, :P, undef) + get(rates, :S_n, undef) * LazySets.center(N_interval)[1] - get(rates, :S_a, undef) * get(rates, :A, undef)) > get(rates, :P_crit, undef)
             D = (0.35 * get(rates, :H, undef))
         end
 
         dE_star = 0
-        if (LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef)) <= (1.5 * get(rates, :P_crit, undef)) || get(rates, :E_star, undef) <= 0.1
+        if (get(rates, :P, undef) + get(rates, :S_n, undef) * LazySets.center(N_interval)[1] - get(rates, :S_a, undef) * get(rates, :A, undef)) <= (1.5 * get(rates, :P_crit, undef)) || get(rates, :E_star, undef) <= 0.1
             dE_star = 0
         else
-            dE_star = -0.0005 * (LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef) - 1.5 * get(rates, :P_crit, undef))
+            dE_star = -0.0005 * (get(rates, :P, undef) + get(rates, :S_n, undef) * LazySets.center(N_interval)[1] - get(rates, :S_a, undef) * get(rates, :A, undef) - 1.5 * get(rates, :P_crit, undef))
         end
 
         rates[:E_star] = rates[:E_star] + (dE_star * time)
@@ -183,27 +216,27 @@ function reach_continuous(loc, init, δ, T_max, t_0)
             H_stable = 0
         end
 
-        A_l = (get(rates, :k_tn, undef) * get(rates, :N_func, undef)) * ((-2/(1 + exp(get(rates, :w, undef) * get(nodes, :S, undef)))) + 1)
+        A_l = (get(rates, :k_tn, undef) * LazySets.center(N_interval)[1]) * ((-2 / (1 + exp(get(rates, :w, undef) * get(nodes, :S, undef)))) + 1)
 
         mu_SP = 0
-        if (LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef)) <= get(rates, :Active_start, undef)
+        if (get(rates, :P, undef) + get(rates, :S_n, undef) * LazySets.center(N_interval)[1] - get(rates, :S_a, undef) * get(rates, :A, undef)) <= get(rates, :Active_start, undef)
             mu_SP = 0
-        elseif (LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef)) <= get(rates, :Active_crit, undef)
-            mu_SP = 0.5 * ((LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef) - get(rates, :Active_start, undef)) / get(rates, :Active_crit, undef)) * get(nodes, :S, undef)
+        elseif (get(rates, :P, undef) + get(rates, :S_n, undef) * LazySets.center(N_interval)[1] - get(rates, :S_a, undef) * get(rates, :A, undef)) <= get(rates, :Active_crit, undef)
+            mu_SP = 0.5 * ((get(rates, :P, undef) + get(rates, :S_n, undef) * LazySets.center(N_interval)[1] - get(rates, :S_a, undef) * get(rates, :A, undef) - get(rates, :Active_start, undef)) / get(rates, :Active_crit, undef)) * get(nodes, :S, undef)
         else
-            mu_SP = 0.5 * get(rates, S, undef)
+            mu_SP = 0.5 * get(nodes, :S, undef)
         end
 
         mu_SA = 0
-        if (LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef)) <= get(rates, :Immune_start, undef)
+        if (get(rates, :P, undef) + get(rates, :S_n, undef) * LazySets.center(N_interval)[1] - get(rates, :S_a, undef) * get(rates, :A, undef)) <= get(rates, :Immune_start, undef)
             mu_SA = 0
-        elseif (LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef)) <= get(rates, :Immune_crit, undef)
-            mu_SA = 0.2 * ((LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef) - get(rates, :Immune_start, undef)) / get(rates, :Immune_crit, undef)) * get(nodes, :S, undef)
+        elseif (get(rates, :P, undef) + get(rates, :S_n, undef) * LazySets.center(N_interval)[1] - get(rates, :S_a, undef) * get(rates, :A, undef)) <= get(rates, :Immune_crit, undef)
+            mu_SA = 0.2 * ((get(rates, :P, undef) + get(rates, :S_n, undef) * LazySets.center(N_interval)[1] - get(rates, :S_a, undef) * get(rates, :A, undef) - get(rates, :Immune_start, undef)) / get(rates, :Immune_crit, undef)) * get(nodes, :S, undef)
         else
-            mu_SA = 0.2 * get(rates, S, undef)
-        end
+            mu_SA = 0.2 * get(nodes, :S, undef)
+        end        
 
-        D_P = get(rates, :d_p, undef) * LazySets.center(P_interval)[1]
+        D_P = get(rates, :d_p, undef) * get(rates, :P, undef)
 
         if get(rates, :A, undef) > 0
             D_A = get(rates, :d_a, undef) * get(rates, :A, undef)
@@ -217,7 +250,7 @@ function reach_continuous(loc, init, δ, T_max, t_0)
 
         #Node rate calculations
         dHdt = E * (Renewal + H_stable) - D
-        dNdt = get(rates, :g_N, undef) * get(rates, :N_func, undef) - ((get(rates, :k_nq, undef) * get(nodes, :Q, undef) + (get(rates, :k_ns, undef) * get(nodes, :S, undef))) * (1 - ((get(rates, :N_func, undef)/get(rates, :N_inf, undef)))))
+        dNdt = get(rates, :g_N, undef) * LazySets.center(N_interval)[1] - ((get(rates, :k_nq, undef) * get(nodes, :Q, undef) + (get(rates, :k_ns, undef) * get(nodes, :S, undef))) * (1 - ((LazySets.center(N_interval)[1]/get(rates, :N_inf, undef)))))
         dPdt = (get(rates, :S_PS, undef) * get(nodes, :S, undef)) + (get(rates, :S_PQ, undef) * get(nodes, :Q, undef)) + (get(rates, :S_PH, undef) * get(rates, :H, undef)) - D_P
         dAdt = (get(rates, :S_AU, undef) * get(nodes, :U, undef)) + (get(rates, :S_AS, undef) * get(nodes, :S, rates)) + (get(rates, :S_AH, undef) * get(rates, :H, undef)) - D_A
         dSdt = D - A_l - D_S - mu_SA - mu_SP
@@ -226,10 +259,10 @@ function reach_continuous(loc, init, δ, T_max, t_0)
 
         #Linear approximation
         time = (i * δ) + t_0
-        translation_vector = [dPdt] * time
+        translation_vector = [dNdt] * time
 
         rates[:H] = (dHdt * time) + get(rates, :H, undef)
-        rates[:N_func] = (dNdt * time) + get(rates, :N_func, undef)
+        rates[:P] = (dPdt * time) + get(rates, :P, undef)
         rates[:A] = (dAdt * time) + get(rates, :A, undef)
         nodes[:S] = (dSdt * time) + get(nodes, :S, undef)
         nodes[:Q] = (dQdt * time) + get(nodes, :Q, undef)
@@ -238,20 +271,20 @@ function reach_continuous(loc, init, δ, T_max, t_0)
         
         #Initialize these and append
         push!(H_times, get(rates, :H, undef))
-        push!(N_func_times, get(rates, :N_func, undef))
+        push!(P_times, get(rates, :P, undef))
         push!(A_times, get(rates, :A, undef))
         push!(S_times, get(nodes, :S, undef))
         push!(Q_times, get(nodes, :Q, undef))
         push!(U_times, get(nodes, :U, undef))
         
-        rate_times = [H_times, N_func_times, A_times, S_times, Q_times, U_times]
+        rate_times = [H_times, P_times, A_times, S_times, Q_times, U_times]
 
         try
-            P_interval = LazySets.translate(P_interval, translation_vector)
+            N_interval = LazySets.translate(N_interval, translation_vector)
         catch err
             if isa(err, AssertionError)
                 println("AssertionError: Attempted to access an index that is out of bounds. Error details: ", err)
-                push!(R, (P_interval, time))
+                push!(R, (N_interval, time))
                 break
             else
                 rethrow(err)  # Rethrow the error if it is not a BoundsError
@@ -263,24 +296,24 @@ function reach_continuous(loc, init, δ, T_max, t_0)
         if loc == 1
             E = 1
         elseif loc == 2
-            E = 2 - (2/(1+exp(-1 * get(rates, :y, undef) * (LazySets.center(P_interval)[1] + get(rates, :S_n, undef) * get(rates, :N_func, undef) - get(rates, :S_a, undef) * get(rates, :A, undef) - get(rates, :P_crit, undef)))))
+            E = 2 - (2/(1+exp(-1 * get(rates, :y, undef) * get(rates, :P, undef) + get(rates, :S_n, undef) * (LazySets.center(N_interval)[1] - get(rates, :S_a, undef) * get(rates, :A, undef) - get(rates, :P_crit, undef)))))
         end
     
         if E < 0
             E = 0
         end
 
-        if high(P_interval)[1] > 1.0E+10
+        if high(N_interval)[1] > 1.0E+10
             break
-        elseif low(P_interval)[1] == 0.0
+        elseif low(N_interval)[1] == 0.0
             break
         end
-        if low(P_interval)[1] < 0 && high(P_interval)[1] > 0
-            P_interval = LazySets.Interval(0.0, high(P_interval)[1])
-        elseif low(P_interval)[1] < 0 && high(P_interval)[1] < 0
-            P_interval = LazySets.Interval(0.0, 0.0)
+        if low(N_interval)[1] < 0 && high(N_interval)[1] > 0
+            N_interval = LazySets.Interval(0.0, high(N_interval)[1])
+        elseif low(N_interval)[1] < 0 && high(N_interval)[1] < 0
+            N_interval = LazySets.Interval(0.0, 0.0)
         end
-        push!(R, (P_interval, time))
+        push!(R, (N_interval, time))
         print(E)
     end
     return R, rate_times
@@ -334,7 +367,7 @@ end
 #Set rates
 rates = Dict(
         :w => 0.0005,
-        :P_crit => 2500,
+        :P_crit => 7000,
         :A_crit => 1000,
         :t_half_leukocytes => 7,
         :t_half_P => 4.1375,
@@ -403,7 +436,7 @@ res = Vector{Tuple{LazySet, Float64}}(undef, 1)
 δ = 0.01
 T = 4.
 guard = LazySets.Interval((get(rates, :P_crit, undef) - 5), (get(rates, :P_crit, undef) + 5))
-init = LazySets.Interval(1000, 1500)
+init = LazySets.Interval(7750, 82509)
 
 #initialize first queue with the initial interval, mode, and time
 queue[1] = (init, 1, 0.0)
