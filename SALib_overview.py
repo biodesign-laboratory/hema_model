@@ -7,6 +7,29 @@ from project_library import linear_sim
 import time
 import pandas
 
+# code block directly below is following SALib tutorial
+'''problem = {
+    'num_vars': 3,
+    'names': ['x1', 'x2', 'x3'],
+    'bounds': [[-1*np.pi, np.pi],
+               [-1*np.pi, np.pi],
+               [-1*np.pi, np.pi]]
+}       # dictionary defining the inputs to perform SA on
+
+param_values = saltelli.sample(problem, 1024)   # generates 1024*(2*3+2) input samples
+
+Y = Ishigami.evaluate(param_values)     # evaluates the Ishigami function on generated input samples
+
+Si = sobol.analyze(problem, Y)'''
+# Si is a py dictionary with keys "S1", "S2", "ST", "S1_conf", "S2_conf", "ST_conf"
+# the "_conf" keys store the corresponding confidence intervals (95%)
+
+'''print("First-order:", Si['S1'])
+print("Second-order:", Si['S2'])
+print("Total-order:", Si['ST'])'''
+
+
+# -----------------------------------------------------------------------------------------------------------------
 # code block directly below is using linear_sim function to evaluate sensitivity on the IHD model 
 problem_IHD = {
     'num_vars': 24,
@@ -45,7 +68,7 @@ print("Shape of the generated sample: ", param_values_IHD.shape)
 print("First few samples:")
 print(param_values_IHD[:3])
 
-init_values = np.hstack((param_values_IHD[:, -2:], np.tile(np.array([4000, 0, 0.9, 0.1, 1800, 300, 1]), (param_values_IHD.shape[0], 1))))
+init_values = np.hstack((param_values_IHD[:, -1], np.tile(np.array([0, 4000, 0, 0.9, 0.1, 1800, 300, 1]), (param_values_IHD.shape[0], 1))))
 print("First few initial value sets: ")         # sanity check
 print(init_values[3,:])
 print("Shape of init_value array: ", init_values.shape)
@@ -56,7 +79,7 @@ print("! Computations starting now !")
 start_time = time.time()
 for i, X in enumerate(param_values_IHD):
 
-    IHD_out[i] = linear_sim(init_values[i], X[:23], 0.01, 100, [50], [5000])[:, -1]        # for each function in the output data, grab only the last time-series data point
+    IHD_out[i] = linear_sim(init_values[i], X[:23], 0.01, 100, [50], [X[-1]])[:, -1]        # for each function in the output data, grab only the last time-series data point
 
 end_time = time.time()
 elapsed_time = end_time - start_time
