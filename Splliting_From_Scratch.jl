@@ -19,7 +19,7 @@ function plot_res(res)
         push!(times, time)
         push!(lower_bound, min(interval))
         push!(upper_bound, max(interval))
-        #plot!(p, [time, time], [min(interval), max(interval)], fillrange=lower_bound, fillalpha=0.3, label="", color="blue", xlims=[0,1], ylims=[0,100000])
+        #plot!(p, [time, time], [min(interval), max(interval)], fillrange=lower_bound, fillalpha=0.3, label="", color="blue", xlims=[0,0.5])
         plot!(p, [time, time], [min(interval), max(interval)], fillrange=lower_bound, fillalpha=0.3, label="", color="blue")
     end
 
@@ -61,11 +61,20 @@ function run_reach(δ, local_queue, T, guard)
         push!(res, (S, t))
 
         #making a new S_temp to reflect that we aren't checking for P, but for a translated version of P
-        scaling_factor = get(rates, :S_n, undef) + rate_times[2][i]
-        S_temp = S * scaling_factor
-        translation_vector = [get(rates, :S_a, undef) * rate_times[3][i]]
-        S_temp = LazySets.translate(S, translation_vector)
+        S_temp = S
+        try
+            scaling_factor = get(rates, :S_n, undef) + rate_times[2][i]
+            S_temp = LazySets.Interval(scaling_factor * min(S), scaling_factor * max(S))
+            translation_vector = [get(rates, :S_a, undef) * rate_times[3][i]]
+            println("translation: ", translation_vector)
+            S_temp = LazySets.translate(S_temp, translation_vector)
+            println(S_temp)
+        catch e
+            println(e)
+            break
+        end
         if !isdisjoint(S_temp, guard)
+            println("split")
             new_t = R[i][2] + δ
             L = LazySets.Interval(0.0, 1.0)
             U = LazySets.Interval(0.0, 1.0)
@@ -433,10 +442,10 @@ nodes = Dict(
 #Time step, overall time, guard, starting interval, queue and results
 queue = Vector{Tuple{LazySets.Interval, Integer, Float64}}(undef, 1)
 res = Vector{Tuple{LazySet, Float64}}(undef, 1)
-δ = 0.01
+δ = 0.001
 T = 4.
 guard = LazySets.Interval((get(rates, :P_crit, undef) - 5), (get(rates, :P_crit, undef) + 5))
-init = LazySets.Interval(7750, 82509)
+init = LazySets.Interval(8000, 9000)
 
 #initialize first queue with the initial interval, mode, and time
 queue[1] = (init, 1, 0.0)
