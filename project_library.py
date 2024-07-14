@@ -377,16 +377,27 @@ def merge_figures_grid(nRow, nCol, img_width, img_height, file_str_arr):
         collage_image.save(f'{param}_merge_first.png')
 
 
-def csv_to_figure(output_names, param_names, nTimesteps, init_time, nDatapoints, order, filepath='no_path'):
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import os
+
+# this is a template file, the code's purpose is to generate time-series line graphs and save them as .png's from given sensitivity analysis output .csv data
+# for file paths, this file is expected to be in the same directory as the folders containing output data
+
+def csv_to_figure(output_names, param_names, nTimesteps, init_time, nDatapoints, order, experiment_num, filepath='no_path'):
     '''
     filepath: OPTIONAL, string containing parent directory of all relevant data folders, 'no_path' arg sets path to relative path
     output_names: array containing strings of output names
     param_names: array containing strings of input names
     init_time: initial time
     nDatapoints: number of data types (i.e. columns) to include from .csv
-    order: case-specific to sensitivity analysis
+    order: case-specific to sensitivity analysis, args should be 'first', 'second', or 'total'
+    experiment_num: trial number
+
+    WARNING: order='second' not implemented yet
     ==========================
-    No output, generates time-series figures from given .csv files
+    No output returned from function call, generates time-series figures from given .csv files and places them in associated files
     '''
     script_dir = ''
     if filepath=='no_path':
@@ -396,17 +407,8 @@ def csv_to_figure(output_names, param_names, nTimesteps, init_time, nDatapoints,
     else:
         script_dir = filepath
 
-    output_names = ['H', 'I', 'N', 'Q', 'S', 'U']
 
-    param_names = ['gn', 'knq', 'kns', 'ktn', 'w', 'pcrit', 'spq', 'sph',
-                'sps', 'sas', 'sah', 'sau', 'Is', 'As', 'Ic', 'Ac',
-                'y', 'ds', 'dp', 'da', 'dq', 'du', 'H_init', 'N_init']
-
-    nParam = 24
-    nTimesteps = 24
-    init_time = 51
-    nDatapoints = 2
-    order = 'total'         # change to first-, second-, or total-order as needed
+    nParam = len(param_names)
 
     # ========== 1: Load data from csv's into useable format ==========
 
@@ -457,10 +459,10 @@ def csv_to_figure(output_names, param_names, nTimesteps, init_time, nDatapoints,
             '$H_{Init}$ Sensitivity Index During First 24 Hours of an Infection',
             '$N_{Init}$ Sensitivity Index During First 24 Hours of an Infection']
 
-    filenames = ['gn_SI_2_', 'knq_SI_2_', 'kns_SI_2_', 'ktn_SI_2_', 'w_SI_2_', 'p_crit_SI_2_',
-                'spq_SI_2_', 'sph_SI_2_', 'sps_SI_2_', 'sas_SI_2_', 'sah_SI_2_', 'sau_SI_2_',
-                'Is_SI_2_', 'As_SI_2_', 'Ic_SI_2_', 'Ac_SI_2_', 'y_SI_2_', 'ds_SI_2_',
-                'dp_SI_2_', 'da_SI_2_', 'dq_SI_2_', 'du_SI_2_', 'H_init_SI_2_', 'N_init_SI_2_']
+    filenames = [f'gn_SI_{experiment_num}_', f'knq_SI_{experiment_num}_', f'kns_SI_{experiment_num}_', f'ktn_SI_{experiment_num}_', f'w_SI_{experiment_num}_', f'p_crit_SI_{experiment_num}_',
+                f'spq_SI_{experiment_num}_', f'sph_SI_{experiment_num}_', f'sps_SI_{experiment_num}_', f'sas_SI_{experiment_num}_', f'sah_SI_{experiment_num}_', f'sau_SI_{experiment_num}_',
+                f'Is_SI_{experiment_num}_', f'As_SI_{experiment_num}_', f'Ic_SI_{experiment_num}_', f'Ac_SI_{experiment_num}_', f'y_SI_{experiment_num}_', f'ds_SI_{experiment_num}_',
+                f'dp_SI_{experiment_num}_', f'da_SI_{experiment_num}_', f'dq_SI_{experiment_num}_', f'du_SI_{experiment_num}_', f'H_init_SI_{experiment_num}_', f'N_init_SI_{experiment_num}_']
 
     for i, out_name in enumerate(output_names):
 
@@ -486,7 +488,7 @@ def csv_to_figure(output_names, param_names, nTimesteps, init_time, nDatapoints,
             if not os.path.exists(path):
                 os.makedirs(path)
 
-            fig.savefig(os.path.join(path, f'{param_name}_SI_2_{out_name}.png'))
+            fig.savefig(os.path.join(path, f'{param_name}_SI_{experiment_num}_{out_name}.png'))
 
             plt.close(fig)
 
