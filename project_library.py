@@ -385,19 +385,19 @@ import os
 # this is a template file, the code's purpose is to generate time-series line graphs and save them as .png's from given sensitivity analysis output .csv data
 # for file paths, this file is expected to be in the same directory as the folders containing output data
 
-def csv_to_figure(output_names, param_names, nTimesteps, init_time, nDatapoints, order, experiment_num, filepath='no_path'):
+def csv_to_figure(output_names, param_names, nTimesteps, init_time, nDatapoints, order, exp_num, filepath='no_path'):
     '''
     filepath: OPTIONAL, string containing parent directory of all relevant data folders, 'no_path' arg sets path to relative path
     output_names: array containing strings of output names
     param_names: array containing strings of input names
     init_time: initial time
     nDatapoints: number of data types (i.e. columns) to include from .csv
-    order: case-specific to sensitivity analysis, args should be 'first', 'second', or 'total'
-    experiment_num: trial number
+    order: case-specific to sensitivity analysis
+    exp_num: trial number
 
-    WARNING: order='second' not implemented yet
+    WARNING: order='second' not fully implemented
     ==========================
-    No output returned from function call, generates time-series figures from given .csv files and places them in associated files
+    No output, generates time-series figures from given .csv files
     '''
     script_dir = ''
     if filepath=='no_path':
@@ -421,7 +421,7 @@ def csv_to_figure(output_names, param_names, nTimesteps, init_time, nDatapoints,
 
         for t in np.arange(init_time, init_time + nTimesteps):
 
-            output_timestep_Si_data = pd.read_csv(os.path.join(script_dir, f'{str}_out', f'{order}_order', f'{order}_Si_{str}_2_{t}.csv'), delimiter='\t')  # dataframe with 24 rows, 3 columns where rows=parameter, column0=param_name, column1=Si_index, and column2=SI_conf
+            output_timestep_Si_data = pd.read_csv(os.path.join(script_dir, f'{str}_out', f'{order}_order', f'{order}_Si_{str}_{exp_num}_{t}.csv'), delimiter='\t')  # dataframe with 24 rows, 3 columns where rows=parameter, column0=param_name, column1=Si_index, and column2=SI_conf
             output_timestep_Si_data = output_timestep_Si_data.iloc[:, [1, 2]]
             SIs_per_timestep[t-51] = output_timestep_Si_data.to_numpy()
             
@@ -432,7 +432,17 @@ def csv_to_figure(output_names, param_names, nTimesteps, init_time, nDatapoints,
     moderate_cutoff = np.zeros(24)+0.1
     high_cutoff = np.zeros(24)+0.3
 
-    outputs_in_laTex = ['($H(t)$)', '($I(t)$)', '($N(t)$)', '($Q(t)$)', '($S(t)$)', '($U(t)$)']
+    # outputs_in_laTex = ['($H(t)$)', '($I(t)$)', '($N(t)$)', '($Q(t)$)', '($S(t)$)', '($U(t)$)']
+
+    outputs_in_laTex = np.empty(len(output_names), dtype='str')
+    for i, out_name in enumerate(output_names):
+
+        outputs_in_laTex[i] = f'${out_name}(t)'
+
+    '''titles = np.empty(len(param_names), dtype='str'):
+    for i, p_name in enumerate(param_names):
+
+        titles[i] = f'$'''
 
     titles = ['$g_{n}$ Sensitivity Index During First 24 Hours of an Infection',
             '$k_{nq}$ Sensitivity Index During First 24 Hours of an Infection',
@@ -448,7 +458,7 @@ def csv_to_figure(output_names, param_names, nTimesteps, init_time, nDatapoints,
             '$S_{au}$ Sensitivity Index During First 24 Hours of an Infection',
             '$I_{S}$ Sensitivity Index During First 24 Hours of an Infection',
             '$A_{S}$ Sensitivity Index During First 24 Hours of an Infection',
-            '$I_{c}$ Sensitivity Index During First 24 Hours of an Infection',
+            '$I_{C}$ Sensitivity Index During First 24 Hours of an Infection',
             '$A_{C}$ Sensitivity Index During First 24 Hours of an Infection',
             '$\gamma$ Sensitivity Index During First 24 Hours of an Infection',
             '$d_{s}$ Sensitivity Index During First 24 Hours of an Infection',
@@ -459,10 +469,10 @@ def csv_to_figure(output_names, param_names, nTimesteps, init_time, nDatapoints,
             '$H_{Init}$ Sensitivity Index During First 24 Hours of an Infection',
             '$N_{Init}$ Sensitivity Index During First 24 Hours of an Infection']
 
-    filenames = [f'gn_SI_{experiment_num}_', f'knq_SI_{experiment_num}_', f'kns_SI_{experiment_num}_', f'ktn_SI_{experiment_num}_', f'w_SI_{experiment_num}_', f'p_crit_SI_{experiment_num}_',
-                f'spq_SI_{experiment_num}_', f'sph_SI_{experiment_num}_', f'sps_SI_{experiment_num}_', f'sas_SI_{experiment_num}_', f'sah_SI_{experiment_num}_', f'sau_SI_{experiment_num}_',
-                f'Is_SI_{experiment_num}_', f'As_SI_{experiment_num}_', f'Ic_SI_{experiment_num}_', f'Ac_SI_{experiment_num}_', f'y_SI_{experiment_num}_', f'ds_SI_{experiment_num}_',
-                f'dp_SI_{experiment_num}_', f'da_SI_{experiment_num}_', f'dq_SI_{experiment_num}_', f'du_SI_{experiment_num}_', f'H_init_SI_{experiment_num}_', f'N_init_SI_{experiment_num}_']
+    filenames = [f'gn_SI_{exp_num}_', f'knq_SI_{exp_num}_', f'kns_SI_{exp_num}_', f'ktn_SI_{exp_num}_', f'w_SI_{exp_num}_', f'p_crit_SI_{exp_num}_',
+                f'spq_SI_{exp_num}_', f'sph_SI_{exp_num}_', f'sps_SI_{exp_num}_', f'sas_SI_{exp_num}_', f'sah_SI_{exp_num}_', f'sau_SI_{exp_num}_',
+                f'Is_SI_{exp_num}_', f'As_SI_{exp_num}_', f'Ic_SI_{exp_num}_', f'Ac_SI_{exp_num}_', f'y_SI_{exp_num}_', f'ds_SI_{exp_num}_',
+                f'dp_SI_{exp_num}_', f'da_SI_{exp_num}_', f'dq_SI_{exp_num}_', f'du_SI_{exp_num}_', f'H_init_SI_{exp_num}_', f'N_init_SI_{exp_num}_']
 
     for i, out_name in enumerate(output_names):
 
@@ -488,7 +498,7 @@ def csv_to_figure(output_names, param_names, nTimesteps, init_time, nDatapoints,
             if not os.path.exists(path):
                 os.makedirs(path)
 
-            fig.savefig(os.path.join(path, f'{param_name}_SI_{experiment_num}_{out_name}.png'))
+            fig.savefig(os.path.join(path, f'{param_name}_SI_{exp_num}_{out_name}.png'))
 
             plt.close(fig)
 
