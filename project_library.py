@@ -3,10 +3,6 @@
 """
 This is the main function that calculates the values for each individual function from the derivatives using linear approximation
 """
-# This function.py is placed in the SA folder; it has been updated (as of 6/26) with the following changes:
-#   - Removed 8 obsolete parameters
-#   - Fixed N_inf, S_A, and S_N 
-
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -376,8 +372,6 @@ def merge_figures_grid(nRow, nCol, img_width, img_height, file_str_arr):
         # Save the collage image
         collage_image.save(f'{param}_merge_first.png')
 
-# this is a template file, the code's purpose is to generate time-series line graphs and save them as .png's from given sensitivity analysis output .csv data
-# for file paths, this file is expected to be in the same directory as the folders containing output data
 
 def csv_to_figure(output_names, param_names, nTimesteps, init_time, nDatapoints, order, exp_num, filepath='no_path'):
     '''
