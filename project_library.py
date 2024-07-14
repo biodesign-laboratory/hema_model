@@ -9,6 +9,11 @@ This is the main function that calculates the values for each individual functio
 
 
 import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+from PIL import Image
+import os
+
 
 def linear_sim(init_values, rates, timestep_size, TFinal, path_repeat_t, path_repeat_size):
     '''
@@ -83,7 +88,6 @@ def linear_sim(init_values, rates, timestep_size, TFinal, path_repeat_t, path_re
     P_output = [P]
     A_output = [A]
     T_output = [T]
-    I_output = [P_0+S_n*N_0-S_a*A_0]
     
     g_N = rates[0]                  # pathogen growth coefficient per hour
     k_nq = rates[1]                 # kill rate of pthogens by active WBCs
@@ -113,7 +117,7 @@ def linear_sim(init_values, rates, timestep_size, TFinal, path_repeat_t, path_re
     
     count = 1
     
-    
+    I_output = [P_0+S_n*N_0-S_a*A_0]
     #----------- 2. Calculating derivative values for each t > t_0
     
     for x in timesteps[1:]:
@@ -311,6 +315,180 @@ def linear_sim(init_values, rates, timestep_size, TFinal, path_repeat_t, path_re
     return output
     
         
-        
-        
-    
+def merge_figures_grid(nRow, nCol, img_width, img_height, file_str_arr):
+    '''
+    ** template code, some lines will need to be modified as needed **
+    Args:
+    nRow: Number of rows in resulting image
+    nCol: Number of columns in resulting image
+    img_width: Image width of each individual image
+    img_height: Image height of each individual image
+    file_str_arr: Array containing relevant file title information for each file to merge
+    ====================
+    Outputs:
+    No output; Saves resulting image file, split into an nRow x nCol grid pattern composed of each individual image, into the
+    same file location as the source code that called this function
+    '''
+    path_titles = ['Ac', 'As', 'da', 'dp', 'dq', 'ds', 'du', 'gn', 
+               'H_init', 'Ic', 'Is', 'knq', 'kns', 'ktn', 'N_init', 'p_crit',
+               'sah', 'sas', 'sau', 'sph', 'spq', 'sps', 'w', 'y']
+
+    for param in path_titles:
+
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        relative_path_H = os.path.join(script_dir, 'H_out', 'first_order', 'figs', f'{param}_SI_2.png')
+        relative_path_I = os.path.join(script_dir, 'I_out', 'first_order', 'figs', f'{param}_SI_2.png')
+        relative_path_N = os.path.join(script_dir, 'N_out', 'first_order', 'figs', f'{param}_SI_2.png')
+        relative_path_Q = os.path.join(script_dir, 'Q_out', 'first_order', 'figs', f'{param}_SI_2.png')
+        relative_path_S = os.path.join(script_dir, 'S_out', 'first_order', 'figs', f'{param}_SI_2.png')
+        relative_path_U = os.path.join(script_dir, 'U_out', 'first_order', 'figs', f'{param}_SI_2.png')
+
+
+        # Define the grid size and image size
+        grid_columns = nCol
+        grid_rows = nRow
+        image_width = img_width  # Width of each individual image
+        image_height = img_height  # Height of each individual image
+
+        # Create a new blank image with a white background
+        collage_width = grid_columns * image_width
+        collage_height = grid_rows * image_height
+        collage_image = Image.new('RGB', (collage_width, collage_height), 'white')
+
+        # List of image file paths
+        image_files = [
+            relative_path_H, 
+            relative_path_I, 
+            relative_path_N,
+            relative_path_Q, 
+            relative_path_S, 
+            relative_path_U
+        ]
+
+        # Paste each image into the collage
+        for i, image_file in enumerate(image_files):
+            img = Image.open(image_file)
+            img = img.resize((image_width, image_height), Image.Resampling.LANCZOS)
+            x = (i % grid_columns) * image_width
+            y = (i // grid_columns) * image_height
+            collage_image.paste(img, (x, y))
+
+        # Save the collage image
+        collage_image.save(f'{param}_merge_first.png')
+
+
+def csv_to_figure(output_names, param_names, nTimesteps, init_time, nDatapoints, order, filepath='no_path'):
+    '''
+    filepath: OPTIONAL, string containing parent directory of all relevant data folders, 'no_path' arg sets path to relative path
+    output_names: array containing strings of output names
+    param_names: array containing strings of input names
+    init_time: initial time
+    nDatapoints: number of data types (i.e. columns) to include from .csv
+    order: case-specific to sensitivity analysis
+    ==========================
+    No output, generates time-series figures from given .csv files
+    '''
+    script_dir = ''
+    if filepath=='no_path':
+
+        script_dir = os.path.dirname(os.path.abspath(__file__))     # file path is relative to source code path
+
+    else:
+        script_dir = filepath
+
+    output_names = ['H', 'I', 'N', 'Q', 'S', 'U']
+
+    param_names = ['gn', 'knq', 'kns', 'ktn', 'w', 'pcrit', 'spq', 'sph',
+                'sps', 'sas', 'sah', 'sau', 'Is', 'As', 'Ic', 'Ac',
+                'y', 'ds', 'dp', 'da', 'dq', 'du', 'H_init', 'N_init']
+
+    nParam = 24
+    nTimesteps = 24
+    init_time = 51
+    nDatapoints = 2
+    order = 'total'         # change to first-, second-, or total-order as needed
+
+    # ========== 1: Load data from csv's into useable format ==========
+
+    master_df = np.zeros((len(output_names), nTimesteps, nParam, nDatapoints))
+    # master_df: output -> SIs for all params sorted by time -> SIs sorted by param e.g. to access the sensitivity index of paramater 'z' in the timestep 'y' for output 'x', the index would be df[x, y, z, 1]
+
+    for i, str in enumerate(output_names):
+
+        SIs_per_timestep = np.zeros((nTimesteps, nParam, nDatapoints))
+
+        for t in np.arange(init_time, init_time + nTimesteps):
+
+            output_timestep_Si_data = pd.read_csv(os.path.join(script_dir, f'{str}_out', f'{order}_order', f'{order}_Si_{str}_2_{t}.csv'), delimiter='\t')  # dataframe with 24 rows, 3 columns where rows=parameter, column0=param_name, column1=Si_index, and column2=SI_conf
+            output_timestep_Si_data = output_timestep_Si_data.iloc[:, [1, 2]]
+            SIs_per_timestep[t-51] = output_timestep_Si_data.to_numpy()
+            
+        master_df[i] = SIs_per_timestep
+
+    # =============== 2. Plot data =============================
+
+    moderate_cutoff = np.zeros(24)+0.1
+    high_cutoff = np.zeros(24)+0.3
+
+    outputs_in_laTex = ['($H(t)$)', '($I(t)$)', '($N(t)$)', '($Q(t)$)', '($S(t)$)', '($U(t)$)']
+
+    titles = ['$g_{n}$ Sensitivity Index During First 24 Hours of an Infection',
+            '$k_{nq}$ Sensitivity Index During First 24 Hours of an Infection',
+            '$k_{ns}$ Sensitivity Index During First 24 Hours of an Infection',
+            '$k_{tn}$ Sensitivity Index During First 24 Hours of an Infection',
+            '$\omega$ Sensitivity Index During First 24 Hours of an Infection',
+            '$P_{crit}$ Sensitivity Index During First 24 Hours of an Infection',
+            '$S_{pq}$ Sensitivity Index During First 24 Hours of an Infection',
+            '$S_{ph}$ Sensitivity Index During First 24 Hours of an Infection',
+            '$S_{ps}$ Sensitivity Index During First 24 Hours of an Infection',
+            '$S_{as}$ Sensitivity Index During First 24 Hours of an Infection',
+            '$S_{ah}$ Sensitivity Index During First 24 Hours of an Infection',
+            '$S_{au}$ Sensitivity Index During First 24 Hours of an Infection',
+            '$I_{S}$ Sensitivity Index During First 24 Hours of an Infection',
+            '$A_{S}$ Sensitivity Index During First 24 Hours of an Infection',
+            '$I_{c}$ Sensitivity Index During First 24 Hours of an Infection',
+            '$A_{C}$ Sensitivity Index During First 24 Hours of an Infection',
+            '$\gamma$ Sensitivity Index During First 24 Hours of an Infection',
+            '$d_{s}$ Sensitivity Index During First 24 Hours of an Infection',
+            '$d_{p}$ Sensitivity Index During First 24 Hours of an Infection',
+            '$d_{a}$ Sensitivity Index During First 24 Hours of an Infection',
+            '$d_{q}$ Sensitivity Index During First 24 Hours of an Infection',
+            '$d_{u}$ Sensitivity Index During First 24 Hours of an Infection',
+            '$H_{Init}$ Sensitivity Index During First 24 Hours of an Infection',
+            '$N_{Init}$ Sensitivity Index During First 24 Hours of an Infection']
+
+    filenames = ['gn_SI_2_', 'knq_SI_2_', 'kns_SI_2_', 'ktn_SI_2_', 'w_SI_2_', 'p_crit_SI_2_',
+                'spq_SI_2_', 'sph_SI_2_', 'sps_SI_2_', 'sas_SI_2_', 'sah_SI_2_', 'sau_SI_2_',
+                'Is_SI_2_', 'As_SI_2_', 'Ic_SI_2_', 'Ac_SI_2_', 'y_SI_2_', 'ds_SI_2_',
+                'dp_SI_2_', 'da_SI_2_', 'dq_SI_2_', 'du_SI_2_', 'H_init_SI_2_', 'N_init_SI_2_']
+
+    for i, out_name in enumerate(output_names):
+
+        for p, param_name in enumerate(param_names):    # enumerate is unnecessary here, edit later
+
+            fig, axs = plt.subplots()
+
+            axs.plot(np.arange(init_time, init_time+nTimesteps), master_df[i, :, p, 0], 'k')  # SI indices
+            axs.plot(np.arange(init_time, init_time+nTimesteps), moderate_cutoff, 'y--', label='Mod. Influential lower bound')    # Lower bound on range to be considered moderately influential
+            axs.plot(np.arange(init_time, init_time+nTimesteps), high_cutoff, 'g--', label='Highly Influential lower bound')        # Lower bound on range to be considered highly influential
+
+            axs.fill_between(
+            np.arange(init_time, init_time+nTimesteps), master_df[i, :, p, 0]-master_df[i, :, p, 1], master_df[i, :, p, 0]+master_df[i, :, p, 1], color='k', alpha=.15, label='$95\%$ Confidence Interval')
+
+            axs.set_xlabel('Time ($t$)')
+            axs.set_ylabel('Sensitivity Index')
+            axs.set_ylim(ymin=0, ymax=1)
+            axs.set_title(titles[p] + " " + outputs_in_laTex[i])
+            axs.legend()
+
+            path = os.path.join(script_dir, f'{out_name}_out', f'{order}_figs')
+
+            if not os.path.exists(path):
+                os.makedirs(path)
+
+            fig.savefig(os.path.join(path, f'{param_name}_SI_2_{out_name}.png'))
+
+            plt.close(fig)
+
+
+    print("Figures compiled succesfully!")
