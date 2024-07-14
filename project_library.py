@@ -376,12 +376,6 @@ def merge_figures_grid(nRow, nCol, img_width, img_height, file_str_arr):
         # Save the collage image
         collage_image.save(f'{param}_merge_first.png')
 
-
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-import os
-
 # this is a template file, the code's purpose is to generate time-series line graphs and save them as .png's from given sensitivity analysis output .csv data
 # for file paths, this file is expected to be in the same directory as the folders containing output data
 
