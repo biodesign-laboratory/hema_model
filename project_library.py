@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-# -*- coding: utf-8 -*-
-"""
-This is the main function that calculates the values for each individual function from the derivatives using linear approximation
-"""
-
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -311,7 +305,7 @@ def linear_sim(init_values, rates, timestep_size, TFinal, path_repeat_t, path_re
     return output
     
         
-def merge_figures_grid(nRow, nCol, img_width, img_height, file_str_arr):
+def merge_figures_grid(nRow, nCol, img_width, img_height, exp_num, order, output_names, param_names):
     '''
     ** template code, some lines will need to be modified as needed **
     Args:
@@ -319,58 +313,60 @@ def merge_figures_grid(nRow, nCol, img_width, img_height, file_str_arr):
     nCol: Number of columns in resulting image
     img_width: Image width of each individual image
     img_height: Image height of each individual image
-    file_str_arr: Array containing relevant file title information for each file to merge
+    exp_num: Experiment number
+    order: Sensitivity analysis specific argument, specifies which order graphs are being combined (first, second, or total)
+    output_names: Array containing the desired output names
+    param_names: Array containing the desired parameter names
+
     ====================
     Outputs:
     No output; Saves resulting image file, split into an nRow x nCol grid pattern composed of each individual image, into the
     same file location as the source code that called this function
     '''
-    path_titles = ['Ac', 'As', 'da', 'dp', 'dq', 'ds', 'du', 'gn', 
-               'H_init', 'Ic', 'Is', 'knq', 'kns', 'ktn', 'N_init', 'p_crit',
-               'sah', 'sas', 'sau', 'sph', 'spq', 'sps', 'w', 'y']
+    path_titles = param_names
+
+    relative_path_arr = np.empty(len(output_names), dtype=f'<U256')    # will contain paths to the images in the same order that the output names appear in output_names arg
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
 
     for param in path_titles:
 
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        relative_path_H = os.path.join(script_dir, 'H_out', 'first_order', 'figs', f'{param}_SI_2.png')
-        relative_path_I = os.path.join(script_dir, 'I_out', 'first_order', 'figs', f'{param}_SI_2.png')
-        relative_path_N = os.path.join(script_dir, 'N_out', 'first_order', 'figs', f'{param}_SI_2.png')
-        relative_path_Q = os.path.join(script_dir, 'Q_out', 'first_order', 'figs', f'{param}_SI_2.png')
-        relative_path_S = os.path.join(script_dir, 'S_out', 'first_order', 'figs', f'{param}_SI_2.png')
-        relative_path_U = os.path.join(script_dir, 'U_out', 'first_order', 'figs', f'{param}_SI_2.png')
-
-
-        # Define the grid size and image size
-        grid_columns = nCol
-        grid_rows = nRow
-        image_width = img_width  # Width of each individual image
-        image_height = img_height  # Height of each individual image
+        for i, out_name in enumerate(output_names):
+            
+            filepath = os.path.join(script_dir, f'Experiment_{exp_num}', f'{out_name}_out', f'{order}_figs', f'{param}_SI_{exp_num}_{out_name}.png')
+            # print(f'{param} for {out_name} exists: ' + str(os.path.exists(filepath)))
+            relative_path_arr[i] = os.path.join(script_dir, f'Experiment_{exp_num}', f'{out_name}_out', f'{order}_figs', f'{param}_SI_{exp_num}_{out_name}.png')
 
         # Create a new blank image with a white background
-        collage_width = grid_columns * image_width
-        collage_height = grid_rows * image_height
+        collage_width = nCol * img_width
+        collage_height = nRow * img_height
         collage_image = Image.new('RGB', (collage_width, collage_height), 'white')
 
-        # List of image file paths
-        image_files = [
-            relative_path_H, 
-            relative_path_I, 
-            relative_path_N,
-            relative_path_Q, 
-            relative_path_S, 
-            relative_path_U
-        ]
-
         # Paste each image into the collage
-        for i, image_file in enumerate(image_files):
-            img = Image.open(image_file)
-            img = img.resize((image_width, image_height), Image.Resampling.LANCZOS)
-            x = (i % grid_columns) * image_width
-            y = (i // grid_columns) * image_height
-            collage_image.paste(img, (x, y))
+        for i, image_file in enumerate(relative_path_arr):
+            # print(f"Opening image: {image_file}")
+            if os.path.exists(image_file):
+                try:
+                    img = Image.open(image_file)
+                    # print(f"Image size before resizing: {img.size}")
+                    img = img.resize((img_width, img_height), Image.Resampling.LANCZOS)
+                    # print(f"Image size after resizing: {img.size}")
+                    x = (i % nCol) * img_width
+                    y = (i // nCol) * img_height
+                    # print(f"Pasting image at coordinates: ({x}, {y})")
+                    collage_image.paste(img, (x, y))
+                except Exception as e:
+                    print(f"Error opening or pasting image: {e}")
+            else:
+                print(f"Image file does not exist: {image_file}")
 
-        # Save the collage image
-        collage_image.save(f'{param}_merge_first.png')
+    # Save the collage image
+        filepath = os.path.join(script_dir, f'Experiment_{exp_num}', f'{order}_order_merge')
+        if not os.path.exists(filepath):
+            os.makedirs(filepath)
+
+        collage_image.save(os.path.join(filepath, f'{param}_merge_{order}.png'))
+
 
 
 def csv_to_figure(output_names, param_names, nTimesteps, init_time, nDatapoints, order, exp_num, filepath='no_path'):
@@ -411,51 +407,51 @@ def csv_to_figure(output_names, param_names, nTimesteps, init_time, nDatapoints,
 
             output_timestep_Si_data = pd.read_csv(os.path.join(script_dir, f'{str}_out', f'{order}_order', f'{order}_Si_{str}_{exp_num}_{t}.csv'), delimiter='\t')  # dataframe with 24 rows, 3 columns where rows=parameter, column0=param_name, column1=Si_index, and column2=SI_conf
             output_timestep_Si_data = output_timestep_Si_data.iloc[:, [1, 2]]
-            SIs_per_timestep[t-51] = output_timestep_Si_data.to_numpy()
+            SIs_per_timestep[t-init_time] = output_timestep_Si_data.to_numpy()
             
         master_df[i] = SIs_per_timestep
 
     # =============== 2. Plot data =============================
 
-    moderate_cutoff = np.zeros(24)+0.1
-    high_cutoff = np.zeros(24)+0.3
+    moderate_cutoff = np.zeros(nTimesteps)+0.1
+    high_cutoff = np.zeros(nTimesteps)+0.3
 
     # outputs_in_laTex = ['($H(t)$)', '($I(t)$)', '($N(t)$)', '($Q(t)$)', '($S(t)$)', '($U(t)$)']
 
-    outputs_in_laTex = np.empty(len(output_names), dtype='str')
+    outputs_in_laTex = np.empty(len(output_names), dtype=f'<U256')
     for i, out_name in enumerate(output_names):
 
-        outputs_in_laTex[i] = f'${out_name}(t)'
+        outputs_in_laTex[i] = fr'${out_name}(t)'
 
-    '''titles = np.empty(len(param_names), dtype='str'):
+    '''titles = np.empty(len(param_names), dtype=f'<U256'):
     for i, p_name in enumerate(param_names):
 
         titles[i] = f'$'''
 
-    titles = ['$g_{n}$ Sensitivity Index During First 24 Hours of an Infection',
-            '$k_{nq}$ Sensitivity Index During First 24 Hours of an Infection',
-            '$k_{ns}$ Sensitivity Index During First 24 Hours of an Infection',
-            '$k_{tn}$ Sensitivity Index During First 24 Hours of an Infection',
-            '$\omega$ Sensitivity Index During First 24 Hours of an Infection',
-            '$P_{crit}$ Sensitivity Index During First 24 Hours of an Infection',
-            '$S_{pq}$ Sensitivity Index During First 24 Hours of an Infection',
-            '$S_{ph}$ Sensitivity Index During First 24 Hours of an Infection',
-            '$S_{ps}$ Sensitivity Index During First 24 Hours of an Infection',
-            '$S_{as}$ Sensitivity Index During First 24 Hours of an Infection',
-            '$S_{ah}$ Sensitivity Index During First 24 Hours of an Infection',
-            '$S_{au}$ Sensitivity Index During First 24 Hours of an Infection',
-            '$I_{S}$ Sensitivity Index During First 24 Hours of an Infection',
-            '$A_{S}$ Sensitivity Index During First 24 Hours of an Infection',
-            '$I_{C}$ Sensitivity Index During First 24 Hours of an Infection',
-            '$A_{C}$ Sensitivity Index During First 24 Hours of an Infection',
-            '$\gamma$ Sensitivity Index During First 24 Hours of an Infection',
-            '$d_{s}$ Sensitivity Index During First 24 Hours of an Infection',
-            '$d_{p}$ Sensitivity Index During First 24 Hours of an Infection',
-            '$d_{a}$ Sensitivity Index During First 24 Hours of an Infection',
-            '$d_{q}$ Sensitivity Index During First 24 Hours of an Infection',
-            '$d_{u}$ Sensitivity Index During First 24 Hours of an Infection',
-            '$H_{Init}$ Sensitivity Index During First 24 Hours of an Infection',
-            '$N_{Init}$ Sensitivity Index During First 24 Hours of an Infection']
+    titles = [r'$g_{n}$ Sensitivity Index During First 24 Hours of an Infection',
+            r'$k_{nq}$ Sensitivity Index During First 24 Hours of an Infection',
+            r'$k_{ns}$ Sensitivity Index During First 24 Hours of an Infection',
+            r'$k_{tn}$ Sensitivity Index During First 24 Hours of an Infection',
+            r'$\omega$ Sensitivity Index During First 24 Hours of an Infection',
+            r'$P_{crit}$ Sensitivity Index During First 24 Hours of an Infection',
+            r'$S_{pq}$ Sensitivity Index During First 24 Hours of an Infection',
+            r'$S_{ph}$ Sensitivity Index During First 24 Hours of an Infection',
+            r'$S_{ps}$ Sensitivity Index During First 24 Hours of an Infection',
+            r'$S_{as}$ Sensitivity Index During First 24 Hours of an Infection',
+            r'$S_{ah}$ Sensitivity Index During First 24 Hours of an Infection',
+            r'$S_{au}$ Sensitivity Index During First 24 Hours of an Infection',
+            r'$I_{S}$ Sensitivity Index During First 24 Hours of an Infection',
+            r'$A_{S}$ Sensitivity Index During First 24 Hours of an Infection',
+            r'$I_{c}$ Sensitivity Index During First 24 Hours of an Infection',
+            r'$A_{C}$ Sensitivity Index During First 24 Hours of an Infection',
+            r'$\gamma$ Sensitivity Index During First 24 Hours of an Infection',
+            r'$d_{s}$ Sensitivity Index During First 24 Hours of an Infection',
+            r'$d_{p}$ Sensitivity Index During First 24 Hours of an Infection',
+            r'$d_{a}$ Sensitivity Index During First 24 Hours of an Infection',
+            r'$d_{q}$ Sensitivity Index During First 24 Hours of an Infection',
+            r'$d_{u}$ Sensitivity Index During First 24 Hours of an Infection',
+            r'$H_{Init}$ Sensitivity Index During First 24 Hours of an Infection',
+            r'$N_{Init}$ Sensitivity Index During First 24 Hours of an Infection']
 
     filenames = [f'gn_SI_{exp_num}_', f'knq_SI_{exp_num}_', f'kns_SI_{exp_num}_', f'ktn_SI_{exp_num}_', f'w_SI_{exp_num}_', f'p_crit_SI_{exp_num}_',
                 f'spq_SI_{exp_num}_', f'sph_SI_{exp_num}_', f'sps_SI_{exp_num}_', f'sas_SI_{exp_num}_', f'sah_SI_{exp_num}_', f'sau_SI_{exp_num}_',
