@@ -3,8 +3,8 @@ using LazySets
 using LinearAlgebra
 using Plots
 
-#= This version has Pathogens as the changing variable,
-everything else is fixed=#
+#= This version has Pathogens as the interval,
+everything else is scalar=#
 
 function plot_res(res)
     #initialize the plot, set of times, set of upper_bounds, and set of lower_bounds
@@ -64,9 +64,10 @@ function run_reach(δ, local_queue, T, guard)
         S_temp = S
         try
             scaling_factor = get(rates, :S_n, undef) + rate_times[2][i]
+            println("scaling factor: ", scaling_factor)
             S_temp = LazySets.Interval(scaling_factor * min(S), scaling_factor * max(S))
             translation_vector = [get(rates, :S_a, undef) * rate_times[3][i]]
-            println("translation: ", translation_vector)
+            #println("translation: ", translation_vector)
             S_temp = LazySets.translate(S_temp, translation_vector)
             println(S_temp)
         catch e
@@ -442,10 +443,10 @@ nodes = Dict(
 #Time step, overall time, guard, starting interval, queue and results
 queue = Vector{Tuple{LazySets.Interval, Integer, Float64}}(undef, 1)
 res = Vector{Tuple{LazySet, Float64}}(undef, 1)
-δ = 0.001
+δ = 0.01
 T = 4.
 guard = LazySets.Interval((get(rates, :P_crit, undef) - 5), (get(rates, :P_crit, undef) + 5))
-init = LazySets.Interval(8000, 9000)
+init = LazySets.Interval(500, 1000)
 
 #initialize first queue with the initial interval, mode, and time
 queue[1] = (init, 1, 0.0)

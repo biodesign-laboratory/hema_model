@@ -1,0 +1,79 @@
+using Plots, LazySets, LinearAlgebra, SparseArrays, Polyhedra
+
+function project(R, vars, n)
+    # projection matrix
+    M = sparse(1:2, vars, [1., 1.], 2, n)
+    return [M * Ri for Ri in R]
+end
+
+function Algorithm1(A, X0, δ, μ, T; lazy::Bool=false)
+    # bloating factors
+    Anorm = norm(A, Inf)
+    α = (exp(δ * Anorm) - 1 - δ * Anorm) / norm(X0, Inf)
+    β = (exp(δ * Anorm) - 1) * μ / Anorm
+
+    # discretized system
+    n = size(A, 1)
+    ϕ = exp(δ * A)
+    N = floor(Int, T / δ)
+
+    # preallocate arrays
+    Q = Vector{LazySet{Float64}}(undef, N)
+    R = Vector{LazySet{Float64}}(undef, N)
+
+    # initial reach set in the time interval [0, δ]
+    ϕp = (I+ϕ) / 2
+    ϕm = (I-ϕ) / 2
+    c = X0.center
+    Q1_generators = hcat(ϕp * X0.generators, ϕm * c, ϕm * X0.generators)
+    Q[1] = lazy ?
+        Zonotope(ϕp * c, Q1_generators) ⊕ BallInf(zeros(n), α + β) :
+        minkowski_sum(Zonotope(ϕp * c, Q1_generators), BallInf(zeros(n), α + β))
+    R[1] = Q[1]
+
+    # set recurrence for [δ, 2δ], ..., [(N-1)δ, Nδ]
+    ballβ = BallInf(zeros(n), β)
+    for i in 2:N
+        Q[i] = lazy ?
+            ϕ * Q[i-1] ⊕ ballβ :
+            minkowski_sum(linear_map(ϕ, Q[i-1]), ballβ)
+        R[i] = Q[i]
+    end
+    return R
+end
+
+function extract_bounds(set, dim)
+    # Extract the minimum and maximum bounds of the zonotope in the specified dimension
+    vertices = vertices_list(set)
+    values = [v[dim] for v in vertices]
+    return minimum(values), maximum(values)
+end
+
+E = 1
+D = 0.35 * 600
+Renewal = 0.35 * 600
+
+g_n = 0.2
+k_nq = 0.85
+k_ns = 0.2
+Q = 0.0
+S = 7000
+U = 0.0
+N_inf = 20000000
+
+A = [E 0 0; 0 1 0; 0 0 1]
+#H, N, P
+X0 = Zonotope([Renewal, (k_nq * Q + k_ns * S), 0.0], [0.0 1000.0; g_n * 0.0  g_n * 500.0; 0.0 600.0])
+
+μ = 0.05
+δ = 0.2
+T = 2.
+time_steps = T/δ
+
+R = Algorithm1(A, X0, δ, μ, 2 * δ); # warm-up
+
+R = Algorithm1(A, X0, δ, μ, T)
+Rproj = project(R, [1, 3], 3)
+
+plot(Rproj, 1e-2, 0; same_recipe=true, fillalpha=0.1, xlabel="HSPC", ylabel="Proinflammatory")
+
