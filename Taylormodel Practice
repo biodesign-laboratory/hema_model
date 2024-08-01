@@ -68,8 +68,8 @@ U = e * T
 const A1 = 40.0
 const A2 = 30.0
 const B = 0.5
-const t1 = 75
-const t2 = 65
+const t1 = 7000
+const t2 = 0
 
 const var′ = @variables t t′
 
@@ -159,9 +159,9 @@ function model(X0)
 end
 
 # ## References
-X0 = Hyperrectangle(; low=[68, 0.0], high=[69, 0.0])
+X0 = Hyperrectangle(; low=[0.0, 0.0], high=[1000.0, 500.0])
 prob = model(X0) # initial-value problem
 
 sol = solve(prob, T=5.0); # solve it using default options
 
-plot(sol, vars=(1, 2)) # plot the solution
+plot(sol, vars=(0, 1)) # plot the solution
