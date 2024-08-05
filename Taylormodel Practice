@@ -77,12 +77,12 @@ const var′ = @variables t t′
 #3 states, 3 dimensions (H N P)
 
 @taylorize function immune_under!(du, u, p, time)
-    H, N = u
+    H, N, P = u
 
     E = 1
     Renewal = (0.35 * ((P + S_n * N - S_a * A)/P_crit)) * H
     D = (0.35 * ((P + S_n * N - S_a * A)/P_crit)) * H
-    #D_P = d_p * P
+    D_P = d_p * P
 
     # H'
     du[1] = E * (Renewal + H) - D
@@ -91,18 +91,18 @@ const var′ = @variables t t′
     du[2] = g_n * N - (k_nq * Q + k_ns * S) * (1-1/N_inf)
 
     #P'
-    #du[3] = (S_PS * S + S_PQ * Q + S_PH * H) - D_P
+    du[3] = (S_PS * S + S_PQ * Q + S_PH * H) - D_P
 
     return du
 end
 
 @taylorize function immune_over!(du, u, p, time)
-    H, N = u
+    H, N, P = u
 
     E =  E = 2 - (2/(1+(-1 * y * (P + S_n * N - S_a * A - P_crit))))
     Renewal = 0.35 * H
     D = 0.35 * H
-    #D_P = d_p * P
+    D_P = d_p * P
 
 
     # H'
@@ -112,18 +112,18 @@ end
     du[2] = g_n * N - (k_nq * Q + k_ns * S) * (1-1/N_inf)
 
     #P'
-    #du[3] = (S_PS * S + S_PQ * Q + S_PH * H) - D_P
+    du[3] = (S_PS * S + S_PQ * Q + S_PH * H) - D_P
 
     return du
 end
 
 @taylorize function immune_zero!(du, u, p, time)
-    H, N = u
+    H, N, P = u
 
     E = 1
     Renewal = 0
     D = 0
-    #D_P = d_p * P
+    D_P = d_p * P
 
 
     # H'
@@ -133,24 +133,24 @@ end
     du[2] = g_n * N - (k_nq * Q + k_ns * S) * (1-1/N_inf)
 
     # P'
-    #du[3] = (S_PS * S + S_PQ * Q + S_PH * H) - D_P
+    du[3] = (S_PS * S + S_PQ * Q + S_PH * H) - D_P
 
     return du
 end
 
 function immune_over′()
-    invariant = HalfSpace(t <= t1, var′)
-    @system(x' = immune_over!(x), dim:2, x ∈ invariant)
+    invariant = HalfSpace([1.0, 0.0, 0.0], 7000.0)
+    @system(x' = immune_over!(x), dim:3, x ∈ invariant)
 end
 
 function immune_under′()
-    invariant = HalfSpace(t <= t2, var′)
-    @system(x' = immune_under!(x), dim:2, x ∈ invariant)
+    invariant = HalfSpace([1.0, 0.0, 0.0], 0.0)
+    @system(x' = immune_under!(x), dim:3, x ∈ invariant)
 end
 
 function immune_zero′()
-    invariant = HalfSpace(t >= t3, var′)
-    @system(x' = immune_zero!(x), dim:2, x ∈ invariant)
+    invariant = HalfSpace([-1.0, 0.0, 0.0], 0.0)
+    @system(x' = immune_zero!(x), dim:3, x ∈ invariant)
 end
 
 function thermostat_hybrid′()
@@ -165,13 +165,13 @@ function thermostat_hybrid′()
     modes = [mode1, mode2, mode3]
 
     ## transition 2 -> 3
-    guard = HalfSpace(t >= t1, var′)
+    guard = HalfSpace([-1.0, 0.0, 0.0], 7000.0)
     trans1 = ConstrainedIdentityMap(1, guard)
     ## transition 1 -> 2
-    guard = HalfSpace(t >= t2, var′)
+    guard = HalfSpace([-1.0, 0.0, 0.0], 7000.0)
     trans2 = ConstrainedIdentityMap(1, guard)
     ## transition 2 -> 1
-    guard = HalfSpace(t <= t3, var′)
+    guard = HalfSpace([1.0, 0.0, 0.0], 7000.0)
     trans3 = ConstrainedIdentityMap(1, guard)
     resetmaps = [trans1, trans2, trans3]
 
@@ -184,7 +184,7 @@ function model(X0)
 end
 
 # ## References
-X0 = Hyperrectangle(; low=[500.0, 0.0], high=[1000.0, 2000.0])
+X0 = Hyperrectangle(; low=[500.0, 0.0, 500.0], high=[1000.0, 2000.0, 1000.0])
 prob = model(X0) # initial-value problem
 
 sol = solve(prob, T=5.0); # solve it using default options
@@ -211,20 +211,20 @@ for k in idx_aborting[2:end]
     plot!(fig, sol[k]; vars=(0, 1), lw=0.0, color=:cyan, alpha=1)
 end
 
-plot!(fig, sol[idx_approaching[1]]; vars=(0, 2), lw=0.0, color=:blue, alpha=1,
+plot!(fig, sol[idx_approaching[1]]; vars=(0, 3), lw=0.0, color=:blue, alpha=1,
       lab="zero Pathogens")
 for k in idx_approaching[2:end]
-    plot!(fig, sol[k]; vars=(0, 2), lw=0.0, color=:blue, alpha=1)
+    plot!(fig, sol[k]; vars=(0, 3), lw=0.0, color=:blue, alpha=1)
 end
 
-plot!(fig, sol[idx_attempt[1]]; vars=(0, 2), lw=0.0, color=:green, alpha=1, lab="under Pathogens")
+plot!(fig, sol[idx_attempt[1]]; vars=(0, 3), lw=0.0, color=:green, alpha=1, lab="under Pathogens")
 for k in idx_attempt[2:end]
-    plot!(fig, sol[k]; vars=(0, 2), lw=0.0, color=:green, alpha=1)
+    plot!(fig, sol[k]; vars=(0, 3), lw=0.0, color=:green, alpha=1)
 end
 
-plot!(fig, sol[idx_aborting[1]]; vars=(0, 2), lw=0.0, color=:purple, alpha=1, lab="over Pathogens")
+plot!(fig, sol[idx_aborting[1]]; vars=(0, 3), lw=0.0, color=:purple, alpha=1, lab="over Pathogens")
 for k in idx_aborting[2:end]
-    plot!(fig, sol[k]; vars=(0, 2), lw=0.0, color=:purple, alpha=1)
+    plot!(fig, sol[k]; vars=(0, 3), lw=0.0, color=:purple, alpha=1)
 end
 
 fig
