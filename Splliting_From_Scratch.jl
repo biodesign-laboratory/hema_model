@@ -244,7 +244,7 @@ function reach_continuous(loc, init, δ, T_max, t_0)
             mu_SA = 0.2 * ((get(rates, :P, undef) + get(rates, :S_n, undef) * LazySets.center(N_interval)[1] - get(rates, :S_a, undef) * get(rates, :A, undef) - get(rates, :Immune_start, undef)) / get(rates, :Immune_crit, undef)) * get(nodes, :S, undef)
         else
             mu_SA = 0.2 * get(nodes, :S, undef)
-        end        
+        end
 
         D_P = get(rates, :d_p, undef) * get(rates, :P, undef)
 

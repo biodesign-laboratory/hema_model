@@ -65,13 +65,16 @@ Q = a * T
 S = b * T
 U = e * T
 
-const A1 = 40.0
-const A2 = 30.0
-const B = 0.5
 const t1 = 7000
 const t2 = 0
+const t3 = 0
+normal_vector = [1.0, 0.0, 0.0]
+offset = t1
+
 
 const var′ = @variables t t′
+
+#3 states, 3 dimensions (H N P)
 
 @taylorize function immune_under!(du, u, p, time)
     H, N = u
@@ -79,12 +82,16 @@ const var′ = @variables t t′
     E = 1
     Renewal = (0.35 * ((P + S_n * N - S_a * A)/P_crit)) * H
     D = (0.35 * ((P + S_n * N - S_a * A)/P_crit)) * H
+    #D_P = d_p * P
 
     # H'
     du[1] = E * (Renewal + H) - D
 
     # N'
     du[2] = g_n * N - (k_nq * Q + k_ns * S) * (1-1/N_inf)
+
+    #P'
+    #du[3] = (S_PS * S + S_PQ * Q + S_PH * H) - D_P
 
     return du
 end
@@ -95,12 +102,17 @@ end
     E =  E = 2 - (2/(1+(-1 * y * (P + S_n * N - S_a * A - P_crit))))
     Renewal = 0.35 * H
     D = 0.35 * H
+    #D_P = d_p * P
+
 
     # H'
     du[1] = E * (Renewal + H) - D
 
     # N'
     du[2] = g_n * N - (k_nq * Q + k_ns * S) * (1-1/N_inf)
+
+    #P'
+    #du[3] = (S_PS * S + S_PQ * Q + S_PH * H) - D_P
 
     return du
 end
@@ -111,6 +123,8 @@ end
     E = 1
     Renewal = 0
     D = 0
+    #D_P = d_p * P
+
 
     # H'
     du[1] = E * (Renewal + H) - D
@@ -118,37 +132,48 @@ end
     # N'
     du[2] = g_n * N - (k_nq * Q + k_ns * S) * (1-1/N_inf)
 
-    return du
+    # P'
+    #du[3] = (S_PS * S + S_PQ * Q + S_PH * H) - D_P
 
     return du
 end
 
-function thermostat_on′()
+function immune_over′()
     invariant = HalfSpace(t <= t1, var′)
     @system(x' = immune_over!(x), dim:2, x ∈ invariant)
 end
 
-function thermostat_off′()
-    invariant = HalfSpace(t >= t2, var′)
+function immune_under′()
+    invariant = HalfSpace(t <= t2, var′)
     @system(x' = immune_under!(x), dim:2, x ∈ invariant)
 end
 
+function immune_zero′()
+    invariant = HalfSpace(t >= t3, var′)
+    @system(x' = immune_zero!(x), dim:2, x ∈ invariant)
+end
+
 function thermostat_hybrid′()
-    automaton = GraphAutomaton(2)
-    add_transition!(automaton, 1, 2, 1)
-    add_transition!(automaton, 2, 1, 2)
+    automaton = GraphAutomaton(3)
+    add_transition!(automaton, 1, 2, 2)
+    add_transition!(automaton, 2, 1, 3)
+    add_transition!(automaton, 2, 3, 1)
 
-    mode1 = thermostat_on′()
-    mode2 = thermostat_off′()
-    modes = [mode1, mode2]
+    mode1 = immune_over′()
+    mode2 = immune_under′()
+    mode3 = immune_zero′()
+    modes = [mode1, mode2, mode3]
 
-    ## transition on -> off
+    ## transition 2 -> 3
     guard = HalfSpace(t >= t1, var′)
     trans1 = ConstrainedIdentityMap(1, guard)
-    ## transition off -> on
-    guard = HalfSpace(t <= t2, var′)
+    ## transition 1 -> 2
+    guard = HalfSpace(t >= t2, var′)
     trans2 = ConstrainedIdentityMap(1, guard)
-    resetmaps = [trans1, trans2]
+    ## transition 2 -> 1
+    guard = HalfSpace(t <= t3, var′)
+    trans3 = ConstrainedIdentityMap(1, guard)
+    resetmaps = [trans1, trans2, trans3]
 
     return HybridSystems.HybridSystem(automaton, modes, resetmaps, [AutonomousSwitching()])
 end
@@ -159,9 +184,49 @@ function model(X0)
 end
 
 # ## References
-X0 = Hyperrectangle(; low=[0.0, 0.0], high=[1000.0, 500.0])
+X0 = Hyperrectangle(; low=[500.0, 0.0], high=[1000.0, 2000.0])
 prob = model(X0) # initial-value problem
 
 sol = solve(prob, T=5.0); # solve it using default options
 
-plot(sol, vars=(0, 1)) # plot the solution
+idx_approaching = findall(x -> x == 1, location.(sol))
+idx_attempt = findall(x -> x == 2, location.(sol))
+idx_aborting = findall(x -> x == 3, location.(sol))
+
+fig = plot()
+
+plot!(fig, sol[idx_approaching[1]]; vars=(0, 1), lw=0.0, color=:lightgreen, alpha=1,
+      lab="zero HSPC")
+for k in idx_approaching[2:end]
+    plot!(fig, sol[k]; vars=(0, 1), lw=0.0, color=:lightgreen, alpha=1)
+end
+
+plot!(fig, sol[idx_attempt[1]]; vars=(0, 1), lw=0.0, color=:red, alpha=1, lab="under HSPC")
+for k in idx_attempt[2:end]
+    plot!(fig, sol[k]; vars=(0, 1), lw=0.0, color=:red, alpha=1)
+end
+
+plot!(fig, sol[idx_aborting[1]]; vars=(0, 1), lw=0.0, color=:cyan, alpha=1, lab="over HSPC")
+for k in idx_aborting[2:end]
+    plot!(fig, sol[k]; vars=(0, 1), lw=0.0, color=:cyan, alpha=1)
+end
+
+plot!(fig, sol[idx_approaching[1]]; vars=(0, 2), lw=0.0, color=:blue, alpha=1,
+      lab="zero Pathogens")
+for k in idx_approaching[2:end]
+    plot!(fig, sol[k]; vars=(0, 2), lw=0.0, color=:blue, alpha=1)
+end
+
+plot!(fig, sol[idx_attempt[1]]; vars=(0, 2), lw=0.0, color=:green, alpha=1, lab="under Pathogens")
+for k in idx_attempt[2:end]
+    plot!(fig, sol[k]; vars=(0, 2), lw=0.0, color=:green, alpha=1)
+end
+
+plot!(fig, sol[idx_aborting[1]]; vars=(0, 2), lw=0.0, color=:purple, alpha=1, lab="over Pathogens")
+for k in idx_aborting[2:end]
+    plot!(fig, sol[k]; vars=(0, 2), lw=0.0, color=:purple, alpha=1)
+end
+
+fig
+
+#plot(sol, vars=(0, 2)) # plot the solution
