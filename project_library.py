@@ -300,7 +300,7 @@ def linear_sim_hybrid(init_values, rates, timestep_size, TFinal, path_repeat_t, 
         # functions should, in theory, never go negative under expected circumstances
     #------------- 3. Output --------------
     
-    output = np.array([H_output, N_output, P_output, A_output, S_output, Q_output, U_output, T_output, I_output])
+    output = np.array([H_output, N_output, S_output, Q_output, U_output, P_output, A_output, T_output, I_output])
     
     return output
 
@@ -377,8 +377,8 @@ def linear_sim_smooth(parameter_arr, init_value_arr, delta_t, t_final, pathogen_
     # the following are the omega functions appearing in the sigmoids, epsilons fixed to 0.01
     omega_R = np.log(((R_MAX-R_MIN)/0.01)-1)/R_CRIT
     omega_D = np.log(((D_MAX-D_MIN)/0.01)-1)/D_CRIT
-    omega_U = np.log(((mu_sa_MAX)/0.01)-1)/U_CRIT
-    omega_Q = np.log(((mu_sp_MAX)/0.01)-1)/Q_CRIT
+    omega_U = -1 * np.log(((mu_sa_MAX)/0.01)-1)/U_CRIT
+    omega_Q = -1 * np.log(((mu_sp_MAX)/0.01)-1)/Q_CRIT
 
     H_output = [H_t]
     N_output = [N_t]
@@ -403,15 +403,14 @@ def linear_sim_smooth(parameter_arr, init_value_arr, delta_t, t_final, pathogen_
     A = A_output[0]
     I = I_output[0]
 
-    for t in timesteps:
-
+    for t in timesteps[1:]:
+        
+        count += 1
         #--------- Mechanism for introducing pathogen input ---------
 
         for i in range(len(pathogen_t)):
             if count == pathogen_t[i]/delta_t:
                 N += pathogen_size[i]
-        
-        count += 1
 
         #------------- 2a. Calculate derivatives -------------------
 
@@ -421,12 +420,12 @@ def linear_sim_smooth(parameter_arr, init_value_arr, delta_t, t_final, pathogen_
         mu_sp_t = mu_sp_MAX * 1/(1 + np.exp(omega_Q*I))
 
         dH = (R_t - D_t)*H
-        dN = g_N*N*(1-N_inf) - (k_nq*Q + k_ns*S)*(N/(N_half + N))
-        dS = D_t - (k_sn*N*(S/(S_half+S))) - d_s*S - (mu_sa_t + mu_sp_t)*S
+        dN = g_N*N*(1-N/N_inf) - (k_nq*Q + k_ns*S)*(N/(N_half + N))
+        dS = D_t*H - (k_sn*N*(S/(S_half+S))) - d_s*S - (mu_sa_t + mu_sp_t)*S
         dQ = mu_sp_t*S - d_q*Q
         dU = mu_sa_t*S - d_u*U
-        dP = S_PH*H + S_PS*S + S_PQ*Q
-        dA = S_AH*H + S_AS*S + S_AU*U
+        dP = S_PH*H + S_PS*S + S_PQ*Q - d_p*P
+        dA = S_AH*H + S_AS*S + S_AU*U -d_a*A
 
         #------------ 2b. Update state variables using linear approximation ------------
 
