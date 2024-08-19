@@ -249,6 +249,8 @@ def linear_sim_hybrid(init_values, rates, timestep_size, TFinal, path_repeat_t, 
         dUdt = mu_SA - D_U                                  # Immuno-suppressive derivative
         
         #--------- 2c. Diagnostics --------------------------------
+
+        # if count < !NUM_HERE!:
         
         #fill with code for checking variable values as needed
         
@@ -323,7 +325,6 @@ def linear_sim_smooth(parameter_arr, init_value_arr, delta_t, t_final, pathogen_
     '''
 
     #--------- 0. Verifying arguments work ---------------
-
     if len(pathogen_t) != len(pathogen_size):
         return 0
     
@@ -366,10 +367,12 @@ def linear_sim_smooth(parameter_arr, init_value_arr, delta_t, t_final, pathogen_
     S_half = parameter_arr[22]
     U_CRIT = parameter_arr[23]
     Q_CRIT = parameter_arr[24]
+    Q_SHIFT = parameter_arr[25]
+    U_SHIFT = parameter_arr[26]
 
     # the following parameters have been fixed for the time being
-    mu_sa_MAX = 0.45
-    mu_sp_MAX = 0.45
+    mu_sa_MAX = 0.7
+    mu_sp_MAX = 0.7
     S_N = 1
     S_A = 1
     N_inf = 2*(10**7)
@@ -377,8 +380,8 @@ def linear_sim_smooth(parameter_arr, init_value_arr, delta_t, t_final, pathogen_
     # the following are the omega functions appearing in the sigmoids, epsilons fixed to 0.01
     omega_R = np.log(((R_MAX-R_MIN)/0.01)-1)/R_CRIT
     omega_D = np.log(((D_MAX-D_MIN)/0.01)-1)/D_CRIT
-    omega_U = -1 * np.log(((mu_sa_MAX)/0.01)-1)/U_CRIT
-    omega_Q = -1 * np.log(((mu_sp_MAX)/0.01)-1)/Q_CRIT
+    omega_U = -1 * np.log(((mu_sa_MAX)/0.01)-1)/(U_CRIT - U_SHIFT)
+    omega_Q = -1 * np.log(((mu_sp_MAX)/0.01)-1)/(Q_CRIT - Q_SHIFT)
 
     H_output = [H_t]
     N_output = [N_t]
@@ -416,8 +419,8 @@ def linear_sim_smooth(parameter_arr, init_value_arr, delta_t, t_final, pathogen_
 
         R_t = R_MAX - (R_MAX - R_MIN)/(1 + np.exp(omega_R*I))
         D_t = D_MAX - (D_MAX - D_MIN)/(1 + np.exp(omega_D*I))
-        mu_sa_t = mu_sa_MAX * 1/(1 + np.exp(omega_U*I))
-        mu_sp_t = mu_sp_MAX * 1/(1 + np.exp(omega_Q*I))
+        mu_sa_t = mu_sa_MAX * 1/(1 + np.exp(omega_U*(I - U_SHIFT)))
+        mu_sp_t = mu_sp_MAX * 1/(1 + np.exp(omega_Q*(I - Q_SHIFT)))
 
         dH = (R_t - D_t)*H
         dN = g_N*N*(1-N/N_inf) - (k_nq*Q + k_ns*S)*(N/(N_half + N))
@@ -427,7 +430,14 @@ def linear_sim_smooth(parameter_arr, init_value_arr, delta_t, t_final, pathogen_
         dP = S_PH*H + S_PS*S + S_PQ*Q - d_p*P
         dA = S_AH*H + S_AS*S + S_AU*U -d_a*A
 
-        #------------ 2b. Update state variables using linear approximation ------------
+        # ----------- 2b. Diagnostics ----------------------
+
+        if pathogen_t[i]/delta_t - 20 < count < pathogen_t[i]/delta_t + 20:
+            print(f'T={count}')
+            print(f'mu_sp_t: {mu_sp_t}')
+            print(f'mu_sa_t: {mu_sa_t}')
+
+        #------------ 2c. Update state variables using linear approximation ------------
 
         H = H + dH*delta_t
         if H < 0:
@@ -460,7 +470,7 @@ def linear_sim_smooth(parameter_arr, init_value_arr, delta_t, t_final, pathogen_
         I = P + S_N*N - S_A*A
         T = S + Q + U
 
-        #-------------- 2c. Append to list -------------------------
+        #-------------- 2d. Append to list -------------------------
         
         H_output.append(H)
         N_output.append(N)
