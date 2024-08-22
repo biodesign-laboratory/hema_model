@@ -109,15 +109,15 @@ for i in range(5):
 
 graph_titles = [
 
-    '$H(t)$',
-    '$N(t)$',
-    '$S(t)$',
-    '$Q(t)$',
-    '$U(t)$',
-    '$P(t)$',
-    '$A(t)$',
-    '$T(t)$',
-    '$I(t)$'
+    '$H(t)$ HSPC',
+    '$N(t)$ Pathogen',
+    '$S(t)$ Stable Leukocytes',
+    '$Q(t)$ Active Leukocytes',
+    '$U(t)$ Immunosuppressive Leukocytes',
+    '$P(t)$ Pro-inf.',
+    '$A(t)$ Anti-inf.',
+    '$T(t)$ Total Leukocytes',
+    '$I(t)$ Inflammation'
 
 ]
 
@@ -128,14 +128,15 @@ for i in range(9):
     plt.figure(i)
     for j in range(5):
         
-        plt.plot(t, outputs_hybrid[j][i], label='hybrid')
+        plt.plot(t, outputs_hybrid[j][i], label='hybrid',ls='--')
         plt.plot(t, outputs_smooth[j][i], label='smooth')
         plt.title(graph_titles[i])
         plt.legend()
-        plt.ylim(0, 3000)
+        plt.yscale('symlog')
+        #plt.ylim(0, 3000)
         
-        if(i == 3):
-            plt.ylim(0, 500)
+        #if(i == 3):
+        #    plt.ylim(0, 500)
 
 
 plt.show()
