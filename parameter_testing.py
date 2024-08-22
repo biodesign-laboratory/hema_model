@@ -93,16 +93,16 @@ init_values_smooth = [
 ]
 
 path_t = [100]  
-path_size = np.zeros(5)
+path_size = np.zeros(runs)
 
 for i in range(len(path_size)):
     
-    path_size[i] = 200 + 100*i
+    path_size[i] = 300 + 50*i
     
-outputs_hybrid = np.zeros((5, 9, int(TFinal / delta_t)))
-outputs_smooth = np.zeros((5, 9, int(TFinal / delta_t)))
+outputs_hybrid = np.zeros((runs, 9, int(TFinal / delta_t)))
+outputs_smooth = np.zeros((runs, 9, int(TFinal / delta_t)))
 
-for i in range(5):
+for i in range(runs):
     
     outputs_hybrid[i] = linear_sim_hybrid(init_values_hybrid, params_hybrid, delta_t, TFinal, path_t, [path_size[i]])
     outputs_smooth[i] = linear_sim_smooth(params_smooth, init_values_smooth, delta_t, TFinal, path_t, [path_size[i]])
@@ -126,14 +126,34 @@ graph_titles = [
 for i in range(9):
     
     plt.figure(i)
-    for j in range(5):
+    for j in range(runs):
         
-        plt.plot(t, outputs_hybrid[j][i], label='hybrid')
-        plt.plot(t, outputs_smooth[j][i], label='smooth')
+        # S = Smooth, H = Hybrid
+        plt.plot(t, outputs_hybrid[j][i], label=f'H: N={path_size[j]}')
+        plt.plot(t, outputs_smooth[j][i], label=f'S: N={path_size[j]}')
         plt.title(graph_titles[i])
         plt.legend()
         plt.ylim(0, 3000)
         
-        if(i == 3):
-            plt.ylim(0, 500)
+    if i == 0:
+        pass  # H(t) figure
+    elif i == 1:
+        plt.xlim(99, 120)  # N(t) figure
+    elif i == 2:
+        pass  # S(t) figure
+    elif i == 3:
+        plt.ylim(0, 500)  # Q(t) figure
+    elif i == 4:
+        pass  # U(t) figure
+    elif i == 5:
+        plt.ylim(0, 4000)  # P(t) figure
+    elif i == 6:
+        pass  # A(t) figure
+    elif i == 7:
+        pass  # T(t) figure
+    elif i == 8:
+        pass  # I(t) figure
+
+# the above elif chain can be replaced with match-case if using python 3.10+
+
             
