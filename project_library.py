@@ -373,7 +373,7 @@ def linear_sim_smooth(parameter_arr, init_value_arr, delta_t, t_final, pathogen_
     # the following parameters have been fixed for the time being
     mu_sa_MAX = 0.7
     mu_sp_MAX = 0.7
-    S_N = 1
+    S_N = 4
     S_A = 1
     N_inf = 2*(10**7)
     
@@ -432,10 +432,10 @@ def linear_sim_smooth(parameter_arr, init_value_arr, delta_t, t_final, pathogen_
 
         # ----------- 2b. Diagnostics ----------------------
 
-        if pathogen_t[i]/delta_t - 20 < count < pathogen_t[i]/delta_t + 20:
+        '''if pathogen_t[i]/delta_t - 20 < count < pathogen_t[i]/delta_t + 20:
             print(f'T={count}')
             print(f'mu_sp_t: {mu_sp_t}')
-            print(f'mu_sa_t: {mu_sa_t}')
+            print(f'mu_sa_t: {mu_sa_t}')'''
 
         #------------ 2c. Update state variables using linear approximation ------------
 
