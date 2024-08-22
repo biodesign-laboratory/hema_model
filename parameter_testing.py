@@ -136,4 +136,7 @@ for i in range(9):
         
         if(i == 3):
             plt.ylim(0, 500)
+
+
+plt.show()
             

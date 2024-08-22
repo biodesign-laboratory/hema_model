@@ -3,7 +3,8 @@ import matplotlib.pyplot as plt
 from SALib.sample import sobol as sobol_sample
 from SALib.analyze import sobol as sobol_analyze
 from SALib.test_functions import Ishigami
-from project_library import linear_sim
+
+from project_library import linear_sim_smooth as linear_sim
 import time
 import pandas
 
