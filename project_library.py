@@ -85,8 +85,6 @@ def linear_sim_hybrid(init_values, rates, timestep_size, TFinal, path_repeat_t, 
     k_tn = rates[3]                 # kill rate of stable WBCs by stable leukocytes
     w = rates[4]                    # how quickly does E(t) -> 0 (as a function of inflammation I(t)); considering fixing
     P_crit = rates[5]               # value of inflammation at which 
-    S_a = 1                         # fixed (SA)
-    S_n = 1                         # fixed (SA)
     N_inf = 2*10**7                 # fixed (SA)
     S_PQ = rates[6]                 # secretion rate of pro by active WBCs
     S_PH = rates[7]                 # secretion rate of pro by HSPCs
@@ -102,8 +100,10 @@ def linear_sim_hybrid(init_values, rates, timestep_size, TFinal, path_repeat_t, 
     d_s = rates[17]                 # natural decay rate of stable WBCs
     d_p = rates[18]                 # natural decay rate of pro-inflammatory cytokines
     d_a = rates[19]                 # natural decay rate of anti-inflammatory cytokines
-    d_q = rates[20]                 # natural decay rate of active WBCs
+    d_q = rates[20]                 # natural decay rate of active WBCs 
     d_u = rates[21]                 # natural decay rate of immuno_suppressive WBCs
+    S_a = rates[22]                 # strength of anti-inflammatory cytokines relative to pro-inflammatory cytokines
+    S_n = rates[23]                 # strength of PAMPs & DAMPs relative to pro-inflammatory cytokines
     
     count = 1
     
@@ -369,19 +369,19 @@ def linear_sim_smooth(parameter_arr, init_value_arr, delta_t, t_final, pathogen_
     Q_CRIT = parameter_arr[24]
     Q_SHIFT = parameter_arr[25]
     U_SHIFT = parameter_arr[26]
+    mu_sa_MAX = parameter_arr[27]
+    mu_sp_MAX = parameter_arr[28]
+    S_N = parameter_arr[29]
+    S_A = parameter_arr[30]
 
     # the following parameters have been fixed for the time being
-    mu_sa_MAX = 0.7
-    mu_sp_MAX = 0.7
-    S_N = 4
-    S_A = 1
     N_inf = 2*(10**7)
     
     # the following are the omega functions appearing in the sigmoids, epsilons fixed to 0.01
     omega_R = np.log(((R_MAX-R_MIN)/0.01)-1)/R_CRIT
     omega_D = np.log(((D_MAX-D_MIN)/0.01)-1)/D_CRIT
-    omega_U = -1 * np.log(((mu_sa_MAX)/0.01)-1)/(U_CRIT - U_SHIFT)
-    omega_Q = -1 * np.log(((mu_sp_MAX)/0.01)-1)/(Q_CRIT - Q_SHIFT)
+    omega_U = -1 * np.log(((mu_sa_MAX)/0.01)-1)/(U_CRIT)
+    omega_Q = -1 * np.log(((mu_sp_MAX)/0.01)-1)/(Q_CRIT)
 
     H_output = [H_t]
     N_output = [N_t]
