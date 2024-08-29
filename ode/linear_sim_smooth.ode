@@ -1,0 +1,51 @@
+p gn=1.2,knq=5,kns=2,ksn=3
+p spq=5,sph=1,sps=2,sas=1,sah=0.5,sau=7
+p ds=0.25,dp=0.95,da=0.8,dq=0.3,du=0.6
+p nhalf=1000,rmax=0.35,rmin=0.1,dmax=0.45,dmin=0
+p rcrit=10000,dcrit=22000,shalf=2000,ucrit=2000
+p qcrit=500,qshift=-1500,ushift=-1500,
+p muSAmax=0.7,muSPmax=0.7,sn=4,sa=1
+p Ninf=20e7
+
+omr=log(((rmax-rmin)/0.01)-1)/rcrit
+omd=log(((dmax-dmin)/0.01)-1)/dcrit
+omu=-1*log(((muSAmax)/0.01)-1)/ucrit
+omq=-1*log(((muSPmax)/0.01)-1)/qcrit
+
+rt=rmax-(rmax-rmin)/(1+exp(omr*i))
+dt=dmax-(dmax-dmin)/(1+exp(omd*i))
+muSAt=muSAmax/(1+exp(omu*(i-ushift)))
+muSPt=muSPmax/(1+exp(omq*(i-qshift)))
+
+I=p+sn*n-sa*a
+
+h'=(rt-dt)*h
+n'=gn*n*(1-n/ninf)-(knq*q+kns*s)*(n/(nhalf+n))
+s'=dt*h-(1e4*(n/(nhalf+n))*(s/(shalf+s)))-ds*s-(muSAt+muSPt)*s
+q'=muSPt*s-dq*q
+u'=muSAt*s-du*u
+p'=sph*h+sps*s+spq*q-dp*p
+a'=sah*h+sas*s+sau*u-da*a
+
+#aux in=i
+#aux dnA=gn*n*(1-n/ninf)
+#aux dnB=(knq*q+kns*s)*(n/(nhalf+n))
+
+H(0)=1000
+N(0)=0
+Q(0)=0
+S(0)=0
+U(0)=0
+P(0)=0
+A(0)=0
+
+p pert=200
+
+global 1 t-100 {N=N+pert}
+
+@ bounds=100000000000
+@ total=200
+@ nplot=2
+@ xp=t,yp=h,xp2=t,yp2=n
+@ xlo=0,xhi=200
+@ ylo=-1,yhi=4000
