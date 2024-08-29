@@ -373,6 +373,8 @@ def linear_sim_smooth(parameter_arr, init_value_arr, delta_t, t_final, pathogen_
     mu_sp_MAX = parameter_arr[28]
     S_N = parameter_arr[29]
     S_A = parameter_arr[30]
+    R_SHIFT = parameter_arr[31]
+    D_SHIFT = parameter_arr[32]
 
     # the following parameters have been fixed for the time being
     N_inf = 2*(10**7)
@@ -380,8 +382,8 @@ def linear_sim_smooth(parameter_arr, init_value_arr, delta_t, t_final, pathogen_
     # the following are the omega functions appearing in the sigmoids, epsilons fixed to 0.01
     omega_R = np.log(((R_MAX-R_MIN)/0.01)-1)/R_CRIT
     omega_D = np.log(((D_MAX-D_MIN)/0.01)-1)/D_CRIT
-    omega_U = -1 * np.log(((mu_sa_MAX)/0.01)-1)/(U_CRIT)
-    omega_Q = -1 * np.log(((mu_sp_MAX)/0.01)-1)/(Q_CRIT)
+    omega_U = np.log(((mu_sa_MAX)/0.01)-1)/(U_CRIT)
+    omega_Q = np.log(((mu_sp_MAX)/0.01)-1)/(Q_CRIT)
 
     H_output = [H_t]
     N_output = [N_t]
@@ -417,8 +419,8 @@ def linear_sim_smooth(parameter_arr, init_value_arr, delta_t, t_final, pathogen_
 
         #------------- 2a. Calculate derivatives -------------------
 
-        R_t = R_MAX - (R_MAX - R_MIN)/(1 + np.exp(omega_R*I))
-        D_t = D_MAX - (D_MAX - D_MIN)/(1 + np.exp(omega_D*I))
+        R_t = R_MAX - (R_MAX - R_MIN)/(1 + np.exp(omega_R*(I - R_SHIFT)))
+        D_t = D_MAX - (D_MAX - D_MIN)/(1 + np.exp(omega_D*(I - D_SHIFT)))
         mu_sa_t = mu_sa_MAX * 1/(1 + np.exp(omega_U*(I - U_SHIFT)))
         mu_sp_t = mu_sp_MAX * 1/(1 + np.exp(omega_Q*(I - Q_SHIFT)))
 
@@ -436,12 +438,18 @@ def linear_sim_smooth(parameter_arr, init_value_arr, delta_t, t_final, pathogen_
             print(f'T={count}')
             print(f'mu_sp_t: {mu_sp_t}')
             print(f'mu_sa_t: {mu_sa_t}')'''
+        '''if count < 12000 and count > 9500 and count % 20 == 0:
+            print('===================================')
+            print(f"Timestep {t} : R(t)={R_t}")
+            print(f"Timestep {t} : D(t)={D_t}")'''
 
         #------------ 2c. Update state variables using linear approximation ------------
 
-        H = H + dH*delta_t
-        if H < 0:
+        if H <= 100:
             H = 0
+            #print(f'{t}:H <= 100')
+        else:
+            H = H + dH*delta_t
 
         N = N + dN*delta_t
         if N < 0:
@@ -468,6 +476,7 @@ def linear_sim_smooth(parameter_arr, init_value_arr, delta_t, t_final, pathogen_
             A = 0
         
         I = P + S_N*N - S_A*A
+        #print(f"I(t)={I}")
         T = S + Q + U
 
         #-------------- 2d. Append to list -------------------------
@@ -644,7 +653,7 @@ def csv_to_figure(o_names, o_name_laTex, p_names, p_names_laTex, nTimesteps, ini
             plt.close(fig)
 
 
-def calculate_derivatives(values):
+def calculate_derivatives_hybrid(values):
 
     # this function is mostly a copy-paste of the linear_sim function; it is used to return the derivative values for given input values (passed in as the arg 'values')
 
@@ -805,3 +814,81 @@ def calculate_derivatives(values):
     
 
     return [dHdt, dNdt, dPdt, dAdt, dSdt, dQdt, dUdt]
+
+def calculate_derivatives_smooth(t, y, parameters):
+    '''
+    This function is mostly a copy-paste of the derivate section of linear_sim_smooth made compatible with solve_ivp
+    ARGS:
+    t: scalar (needed by solve_ivp)
+    y: ndarray with the form (H(t), N(t), P(t), A(t), Q(t), S(t), U(t))
+    parameters: dictionary of parameter values
+    ==============================
+    Outputs derivative values given inputs
+    '''
+    # -------- 1. Unpack dictionary, define relevant functions ----------------------------
+    g_n = parameters['g_n']
+    k_nq = parameters['k_nq']
+    k_ns = parameters['k_ns']
+    k_sn = parameters['k_sn']
+    S_PQ = parameters['S_PQ']
+    S_PH = parameters['S_PH']
+    S_PS = parameters['S_PS']
+    S_AS = parameters['S_AS']
+    S_AH = parameters['S_AH']
+    S_AU = parameters['S_AU']
+    d_s = parameters['d_s']
+    d_p = parameters['d_p']
+    d_a = parameters['d_a']
+    d_q = parameters['d_q']
+    d_u = parameters['d_u']
+    N_half = parameters['N_half']
+    R_MAX = parameters['R_MAX']
+    R_MIN = parameters['R_MIN']
+    D_MAX = parameters['D_MAX']
+    D_MIN = parameters['D_MIN']
+    R_CRIT = parameters['R_CRIT']
+    D_CRIT = parameters['D_CRIT']
+    S_half = parameters['S_half']
+    U_CRIT = parameters['U_CRIT']
+    Q_CRIT = parameters['Q_CRIT']
+    Q_SHIFT = parameters['Q_SHIFT']
+    U_SHIFT = parameters['U_SHIFT']
+    mu_SA_MAX = parameters['mu_SA_MAX']
+    mu_SP_MAX = parameters['mu_SP_MAX']
+    S_N = parameters['S_N']
+    S_A = parameters['S_A']
+    R_SHIFT = parameters['R_SHIFT']
+    D_SHIFT = parameters['D_SHIFT']
+
+    N_inf = 2 * (10**7)     # 20 million, fixed
+
+    omega_R = np.log(((R_MAX-R_MIN)/0.01)-1)/R_CRIT
+    omega_D = np.log(((D_MAX-D_MIN)/0.01)-1)/D_CRIT
+    omega_U = np.log(((mu_SA_MAX)/0.01)-1)/(U_CRIT)
+    omega_Q = np.log(((mu_SP_MAX)/0.01)-1)/(Q_CRIT)
+
+    # ---------- 2. Calculate derivatives -------------------
+    H_t = y[0]
+    N_t = y[1]
+    P_t = y[2]
+    A_t = y[3]
+    Q_t = y[4]
+    S_t = y[5]
+    U_t = y[6]
+
+    I_t = P_t + S_N*N_t - S_A*A_t
+    
+    R_t = R_MAX - (R_MAX - R_MIN)/(1 + np.exp(omega_R*(I_t - R_SHIFT)))
+    D_t = D_MAX - (D_MAX - D_MIN)/(1 + np.exp(omega_D*(I_t - D_SHIFT)))
+    mu_sa_t = mu_SA_MAX * 1/(1 + np.exp(omega_U*(I_t - U_SHIFT)))
+    mu_sp_t = mu_SP_MAX * 1/(1 + np.exp(omega_Q*(I_t - Q_SHIFT)))
+
+    dH = (R_t - D_t)*H_t
+    dN = g_n*N_t*(1-N_t/N_inf) - (k_nq*Q_t + k_ns*S_t)*(N_t/(N_half + N_t))
+    dS = D_t*H_t - (k_sn*N_t*(S_t/(S_half+S_t))) - d_s*S_t - (mu_sa_t + mu_sp_t)*S_t
+    dQ = mu_sp_t*S_t - d_q*Q_t
+    dU = mu_sa_t*S_t - d_u*U_t
+    dP = S_PH*H_t + S_PS*S_t + S_PQ*Q_t - d_p*P_t
+    dA = S_AH*H_t + S_AS*S_t + S_AU*U_t -d_a*A_t
+
+    return [dH, dN, dP, dA, dQ, dS, dU]
