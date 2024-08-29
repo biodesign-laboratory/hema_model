@@ -113,7 +113,7 @@ end
 @taylorize function immune_over!(du, u, p, time)
     H, N = u
 
-    E =  E = 2 - (2/(1+(-1 * y * (P + S_n * N - S_a * A - P_crit))))
+    E = 2 - (2/(1+(-1 * y * (P + S_n * N - S_a * A - P_crit))))
     Renewal = 0.35 * H
     D = 0.35 * H
 
