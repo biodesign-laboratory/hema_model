@@ -163,13 +163,13 @@ function thermostat_hybrid′()
     modes = [mode1, mode2, mode3]
 
     ## transition 1 -> 2
-    guard = HalfSpace([-1.0, S_n, S_a], 7000.0)
+    guard = HalfSpace([-1.0, 0.0, 0.0], 7000.0)
     trans1 = ConstrainedIdentityMap(1, guard)
     ## transition 2 -> 1
-    guard = HalfSpace([1.0, S_n, S_a], 7000.0)
+    guard = HalfSpace([1.0, 0.0, 0.0], 7000.0)
     trans2 = ConstrainedIdentityMap(1, guard)
     ## transition 2 -> 3
-    guard = HalfSpace([-1.0, S_n, S_a], 0.0)
+    guard = HalfSpace([-1.0, 0.0, 0.0], 0.0)
     trans3 = ConstrainedIdentityMap(1, guard)
     resetmaps = [trans1, trans2, trans3]
 
@@ -182,10 +182,10 @@ function model(X0)
 end
 
 ## References
-X0 = Hyperrectangle(; low=[500.0, 1000.0, 0.0], high=[1000.0, 2000.0, 600.0])
+X0 = Hyperrectangle(; low=[500.0, 1100.0, 0.0], high=[1000.0, 1200.0, 600.0])
 prob = model(X0) # initial-value problem
 
-sol = solve(prob, T=1.0); # solve it using default options
+sol = solve(prob, T=2.0); # solve it using default options
 
 #=
 idx_approaching = findall(x -> x == 1, location.(sol))
@@ -226,7 +226,7 @@ for k in idx_aborting[2:end]
     plot!(fig, sol[k]; vars=(0, 3), lw=0.0, color=:purple, alpha=1)
 end=#
 
-plot(sol, vars=(0, 1)) # plot the solution
+plot(sol, vars=(0, 3)) # plot the solution
 
 #fig
 
