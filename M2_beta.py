@@ -4,7 +4,7 @@ import numpy as np
 def linear_like(x, C, e):
     '''
     This function acts like f(x)=x for x >> e, approaches C for x << e
-    Used in model where terms in denominators can equal 0 which would otherwise create an error
+    Used in model where ratios are concerned and the denominator can equal 0 which would otherwise create an error
 
     '''
 
@@ -121,15 +121,15 @@ def beta_model(t, y, parameters, return_terms=False):
 
     dS_dt = (D_I*(1 - beta) + 2*D_I*beta) - D_Q*S_t - D_U*S_t - d_S*S_t - (k_sn*N_t*(S_t/(k_sn*N_t+S_t)))
 
-    dQ_dt = D_Q*S_t - d_Q*(1 - 0.5*I_t)*Q_t
+    dQ_dt = D_Q*S_t - d_Q*(1 - 0.5*I_t/(2 + I_t))*Q_t
 
     dU_dt = D_U*S_t - d_U*U_t
 
     dSCSF_dt = S_SCSF*(K_crit / (K_crit + K_t)) - d_SCSF*SCSF_t
 
-    dP_dt = (S_PH*HM_t + S_PQ*Q_t)*(0.5*I_t + 0.5) + S_PS*S_t - d_P*P_t
+    dP_dt = (S_PH*HM_t + S_PQ*Q_t)*(0.5*I_t/(2 + I_t) + 0.5) + S_PS*S_t - d_P*P_t
 
-    dA_dt = (S_AH*HM_t + S_AU*U_t)*(0.5*I_t + 0.5)  + S_AS*S_t - d_A*A_t
+    dA_dt = (S_AH*HM_t + S_AU*U_t)*(0.5*I_t/(2 + I_t) + 0.5)  + S_AS*S_t - d_A*A_t
 
     dK_dt = S_KD*(k_sn*N_t*(S_t/(k_sn*N_t+S_t))) - R_KU*U_t*(K_t/(K_crit + K_t))
 
