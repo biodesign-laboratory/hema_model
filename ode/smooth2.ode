@@ -1,16 +1,14 @@
 p kh=3,dh=0.05,thetan=2000,thetak=5000,tauq=0.5,tauu=0.5
 p dscsf=0.3,sscsf=10000,skd=1,rku=100,icrit=.2,kcrit=10000
+p acrit=3
 
-p gn=.1,knq=5,kns=2,ksn=3
+p gn=.1,knq=10,kns=0.5,ksn=3
 p spq=5,sph=3,sps=1,sas=1,sah=3,sau=7
-p ds=0.8,dp=0.95,da=0.95,dq=0.9,du=0.6
-p nhalf=500,rmax=0.35,rmin=0.1,dmax=0.45,dmin=0
-p rcrit=10000,dcrit=22000,shalf=2000,ucrit=2000
-p qcrit=500,qshift=-1500,ushift=-1500,
-p muSAmax=0.7,muSPmax=0.7,sn=4,sa=1
-p noo=20e7
+p ds=0.8,dp=0.95,da=0.95,dq=0.9,du=0.8
+p nhalf=500,noo=2e7
 
-It = (P*((Nt^k)/(thetaN^k + Nt^k) + 0.25)*((0.5 * (K)/(thetaK + K) + 1))) / ((A*(thetaN^k/(thetaN^k + Nt^k) + 0.25)*(0.75 * (K)/(thetaK + K) + 1)) + (P*((Nt^k)/(thetaN^k + Nt^k) + 0.25)*((0.5 * (K)/(thetaK + K) + 1))))
+
+It = (P*(N^k/(thetaN^k+N^k)+0.25)*(0.5*K/(thetaK+K)+1))/((A*(thetaN^k/(thetaN^k+N^k)+0.25)*(0.75*K/(thetaK+K)+1))+(P*(N^k/(thetaN^k+N^k)+0.25)*((0.5*K/(thetaK+K)+1))))
 
 linearLike(x,c,e)=C+(x-C)*(x^2/(x^2+e))
 
@@ -18,19 +16,19 @@ DI = (HM*(1/5)*P)/(HM + (1/5)*P) * It
 beta = It/((Icrit + 10) + It)
 etaQ = (1/5) * ((HQ * (P)) / ((1/5)*HQ + P)) * It
 etaM = (1/5) * ((HM * A) / (1/5*HM + A)) * (1 - It)
-DQ = (1/3)*tauQ * (It)/(Icrit + It)
-DU = (1/3)*tauU * ((1/It) / (Acrit + (1/It)))
+DQB = (1/3)*tauQ * (It)/(Icrit + It)
+DUB = (1/3)*tauU * ((1/It) / (Acrit + (1/It)))
 
 HQ' = (etaM - etaQ) + (2*HQ*(1 - (kH*HQ)/linearlike(SCSF, 0.1, 0.00001)))
-HM = etaQ - DI*beta - dH*HM - etaM
+HM' = etaQ - DI*beta - dH*HM - etaM
 N' = gN*N*(1-(N/Noo)) - (knq*Q + kns*S)*(N/(Nhalf + N))
 P' = (SPH*HM + SPQ*Q)*(0.5*It/(2 + It) + 0.5) + SPS*S - dP*P
 A' = (SAH*HM + SAU*U)*(0.5*It/(2 + It) + 0.5)  + SAS*S - dA*A
 SCSF' = SSCSF*(Kcrit / (Kcrit + K)) - dSCSF*SCSF
 K' = SKD*(ksn*N*(S/(ksn*N+S))) - RKU*U*(K/(Kcrit + K))
-Q' = DQ*S - dQ*(1 - 0.5*It/(2 + It))*Q
-S' = (DI*(1 - beta) + 2*DI*beta) - DQ*S - DU*S - dS*S - (ksn*N*(S/(ksn*N+S)))
-U' = DU*S - dU*U
+Q' = DQB*S - dQ*(1 - 0.5*It/(2 + It))*Q
+S' = (DI*(1 - beta) + 2*DI*beta) - DQB*S - DUB*S - dS*S - (ksn*N*(S/(ksn*N+S)))
+U' = DUB*S - dU*U
 
 
 #aux in=i
@@ -48,13 +46,13 @@ Q(0)=0
 S(0)=1
 U(0)=0
 
-p pert=200
+p pert=10000
 
 global 1 t-100 {N=N+pert}
 
 @ bounds=100000000000
-@ total=200
+@ total=700
 @ nplot=2
-@ xp=t,yp=h,xp2=t,yp2=n
-@ xlo=0,xhi=200
-@ ylo=-1,yhi=4000
+@ xp=t,yp=HQ,xp2=t,yp2=n
+@ xlo=0,xhi=700
+@ ylo=-1,yhi=20000
