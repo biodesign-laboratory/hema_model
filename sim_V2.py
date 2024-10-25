@@ -2,15 +2,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import project_library as PL
 import time
-import model_version_3 as M3_debug
+import M2_debug
 import pandas as pd
 from pathlib import Path
 
-run_number = 5      # used in file names when outputting .csv files if either bDerivatives or bDebug are TRUE
+run_number = 11      # used in file names
 
 runs = 10
 delta_t = 0.01
-t_final = 500
+t_final = 672       # 672 hours = 4 weeks
 num_outputs = 11
 bDerivatives = True
 bDebug = True
@@ -37,19 +37,19 @@ parameters = {
 
     'k_H' : 3,
     'dH' : 0.05,
-    'theta_N' : 1000,
+    'theta_N' : 2000,
     'theta_K' : 5000,
-    'tau_Q' : 0.3,
-    'tau_U' : 0.3,
+    'tau_Q' : 0.5,
+    'tau_U' : 0.5,
     'd_SCSF' : 0.3,
     'd_S' : 0.8,
     'd_Q' : 0.9,
     'd_U' : 0.8,
     'd_P' : 0.95,
     'd_A' : 0.95,
-    'g_N' : 0.01,
+    'g_N' : 0.10,
     'N_oo' : 2 * 10**7,
-    'N_half' : 1000,
+    'N_half' : 500,
     'S_PH' : 3,
     'S_PS' : 1,
     'S_PQ' : 5,
@@ -57,15 +57,15 @@ parameters = {
     'S_AH' : 3,
     'S_AS' : 1,
     'S_SCSF' : 10000,
-    'S_KD' : 3,
+    'S_KD' : 1,
     'k_sn' : 3,
     'k_nq' : 10,
     'k_ns' : 0.5,
-    'R_KU' : 10,
+    'R_KU' : 100,
     'I_crit' : 0.2,
     'K_crit' : 10000,
     'k' : 1,
-    'A_crit' : 4
+    'A_crit' : 3
 
 }
 
@@ -73,7 +73,8 @@ ext_stimuli = np.zeros((runs, num_outputs, len(timesteps)))
 
 for i in range(runs):       # add stimuli here
 
-    ext_stimuli[i, 2, int(100/delta_t)] = 1000 + 100*i
+    ext_stimuli[i, 2, int(100/delta_t)] = 0 + 2000*i
+    ext_stimuli[i, 2, int(300/delta_t)] = 0 + 2000*i        # optional; nosocomial infection
 
 if bDerivatives:
     derivatives = np.zeros((runs, 10, len(timesteps)))
@@ -87,15 +88,16 @@ ext_stim_m = ['ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'AD
 
 start = time.time()
 for i in range(runs):
-    data = PL.lin_sim(M3_debug.model_2_debug, parameters, init_state, t_final, delta_t, ext_stimuli[i], ext_stim_m, return_derivatives=bDerivatives, debug_mode=bDebug)
+    data = PL.lin_sim(M2_debug.beta_model, parameters, init_state, t_final, delta_t, ext_stimuli[i], ext_stim_m, return_derivatives=bDerivatives, debug_mode=bDebug)
     outputs[i, :, :] = data[0]
+    print(f"Run {i} output successfully computed")
 
     if bDerivatives:
         derivatives[i] = data[1]
-        print("Checkpoint 1")
+        print(f"Run {i} derivatives successfully loaded")
     if bDebug:
         debug_output = data[2]
-        print("Checkpoint 2")
+        print(f"Run {i} debug data successfully loaded")
 
 end = time.time()
 print(f'Execution successful. Time elapsed: {end-start}s')
@@ -114,6 +116,7 @@ if not Path.exists(path):
 '''path = Path.cwd() / 'Runs' / f'Exp_{run_number}' / f'sim_{run_number}'
 if not Path.exists(path):
     Path.mkdir(path)'''
+
 
 fig1, axs1 = plt.subplots(3, 1)
 fig2, axs2 = plt.subplots(3, 1)
@@ -141,26 +144,41 @@ for i in range(num_outputs):
     for j in range(runs):   # sim runs are split into 4 separate figures to make it more readable
 
         if i < 3:
-            axs1[i%3].plot(timesteps, outputs[j, i])
+            axs1[i%3].plot(timesteps, outputs[j, i], label=f'N={ext_stimuli[j, 2, int(100/delta_t)]}')
             axs1[i%3].title.set_text(titles[i])
+            #axs1[i%3].legend()
         
         elif i < 6:
-            axs2[(i-3)%3].plot(timesteps, outputs[j, i])
+            axs2[(i-3)%3].plot(timesteps, outputs[j, i], label=f'N={ext_stimuli[j, 2, int(100/delta_t)]}')
             axs2[(i-3)%3].title.set_text(titles[i])
+            #axs2[i%3].legend()
         
         elif i < 9:
-            axs3[(i-6)%3].plot(timesteps, outputs[j, i])
+            axs3[(i-6)%3].plot(timesteps, outputs[j, i], label=f'N={ext_stimuli[j, 2, int(100/delta_t)]}')
             axs3[(i-6)%3].title.set_text(titles[i])
+            #axs3[i%3].legend()
         
         else:
-            axs4[(i-9)%3].plot(timesteps, outputs[j, i])
+            axs4[(i-9)%3].plot(timesteps, outputs[j, i], label=f'{ext_stimuli[j, 2, int(100/delta_t)]}')
             axs4[(i-9)%3].title.set_text(titles[i])
+            #axs4[i%3].legend()
 
+# ----- misc options for tuning graphs as need arises ------
 
-fig1.savefig(path / f'sim_{run_number}_Hq_Hp_N.png', dpi=300) # bbox_inches='tight'
+axs1[2].set_ylim((0, 40000))        # optional; set y-limit for pathogen graph if N(t) grows to carrying capacity
+
+# ----------------------------------------------------------
+
+fig1.tight_layout()
+fig2.tight_layout()
+fig3.tight_layout()
+fig4.tight_layout()
+
+fig1.savefig(path / f'sim_{run_number}_Hq_Hp_N.png', dpi=300)
 fig2.savefig(path / f'sim_{run_number}_P_A_SCSF.png', dpi=300)
 fig3.savefig(path / f'sim_{run_number}_K_Q_S.png', dpi=300)
 fig4.savefig(path / f'sim_{run_number}_U_I.png', dpi=300)
+
 plt.show()
 
 # ------------- saving derivatives and/or debug terms to .csv files -------------
