@@ -93,7 +93,8 @@ def beta_model(t, y, parameters, return_terms=False):
     I_t = (P_t*((N_t**k)/(theta_N**k + N_t**k) + 0.25)*((0.5 * (K_t)/(theta_K + K_t) + 1))) / ((A_t*(theta_N**k/(theta_N**k + N_t**k) + 0.25)*(0.75 * (K_t)/(theta_K + K_t) + 1)) + (P_t*((N_t**k)/(theta_N**k + N_t**k) + 0.25)*((0.5 * (K_t)/(theta_K + K_t) + 1))))
     #I_t = P_t / (P_t + A_t)
 
-    D_I = (HM_t*(1/5)*P_t)/(HM_t + (1/5)*P_t) * I_t              # proportion of proliferating HSPCs differentiating (either symmetric or asymmetric)
+    #D_I = (HM_t*(1/5)*P_t)/(HM_t + (1/5)*P_t) * I_t              # proportion of proliferating HSPCs differentiating (either symmetric or asymmetric)
+    D_I = (HM_t*(1/5)*P_t)/((1/5)*HM_t + P_t) * I_t
 
     beta = I_t/((I_crit + 10) + I_t)                              # proportion of differentiating proliferating HSPCs asymmetrically differentiating (1 parent HSPC -> 2 daughter WBCs)
 
@@ -107,7 +108,7 @@ def beta_model(t, y, parameters, return_terms=False):
     # IMPORTANT: These next two functions control how the stable leukocytes compartment (S) upregulate the immuno-suppressive and active compartments (U, Q respectively); relates to our research question
 
     D_Q = (1/3)*tau_Q * (I_t)/(I_crit + I_t)
-    D_U = (1/3)*tau_U * ((1/I_t) / (A_crit + (1/I_t)))
+    D_U = (1/3)*tau_U * (1-I_t) / (A_crit + (1 - I_t))
 
     # ----------- debug ------------------
 
@@ -116,10 +117,16 @@ def beta_model(t, y, parameters, return_terms=False):
     # ----------- 4. Calculate derivatives --------------------
 
     dHM_dt = eta_Q - D_I*beta - dH*HM_t - eta_M
+    #dHM_dt = eta_Q - D_I*beta - dH*HM_t - eta_M - (0.001*N_t*((1 - (1/5 + dH + 1/5))*HM_t/(0.001*N_t+(1 - (1/5 + dH + 1/5))*HM_t))) left off here; producing "invalid value encountered in scalar divide"
 
     dHQ_dt = (eta_M - eta_Q) + (2*HQ_t*(1 - (k_H*HQ_t)/linear_like(SCSF_t, 0.1, 0.00001)))
+    #dHQ_dt = eta_M - eta_Q + (2*HQ_t*(1 - (k_H*HQ_t)/linear_like(SCSF_t, 0.1, 0.00001))) - (0.000001*N_t*((4/5)*HM_t/(0.000001*N_t+(4/5)*HM_t))) left off here; producing "invalid value encountered in scalar divide"
 
-    dS_dt = (D_I*(1 - beta) + 2*D_I*beta) - D_Q*S_t - D_U*S_t - d_S*S_t - (k_sn*N_t*(S_t/(k_sn*N_t+S_t)))
+    #dS_dt = (D_I*(1 - beta) + 2*D_I*beta) - D_Q*S_t - D_U*S_t - d_S*S_t - (k_sn*N_t*(S_t/(k_sn*N_t+S_t)))
+    #dS_dt = (D_I*(1 - beta) + 2*D_I*beta) - D_Q*S_t - D_U*S_t - d_S*S_t
+    dS_dt = (D_I*(1 - beta) + 2*D_I*beta) - D_Q*S_t - D_U*S_t - d_S*S_t - (k_sn*N_t*((1 - (D_Q + D_U + d_S))*S_t/(k_sn*N_t+(1 - (D_Q + D_U + d_S))*S_t)))   # best so far
+    #dS_dt = (D_I*(1 - beta) + 2*D_I*beta) - D_Q*S_t - D_U*S_t - d_S*S_t + (k_sn*N_t*((1 - D_Q + D_U + d_S)*S_t/(k_sn*N_t+(1 - D_Q + D_U + d_S)*S_t)))
+
 
     dQ_dt = D_Q*S_t - d_Q*(1 - 0.5*I_t/(2 + I_t))*Q_t
 
