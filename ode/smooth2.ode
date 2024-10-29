@@ -1,23 +1,23 @@
 p kh=3,dh=0.05,thetan=2000,thetak=5000,tauq=0.5,tauu=0.5
 p dscsf=0.3,sscsf=10000,skd=1,rku=100,icrit=.2,kcrit=10000
-p acrit=3
+p acrit=3,kk=1
 
-p gn=.1,knq=10,kns=0.5,ksn=3
+p gn=.1,knq=10v,kns=0.5,ksn=3
 p spq=5,sph=3,sps=1,sas=1,sah=3,sau=7
 p ds=0.8,dp=0.95,da=0.95,dq=0.9,du=0.8
 p nhalf=500,noo=2e7
 
 
-It = (P*(N^k/(thetaN^k+N^k)+0.25)*(0.5*K/(thetaK+K)+1))/((A*(thetaN^k/(thetaN^k+N^k)+0.25)*(0.75*K/(thetaK+K)+1))+(P*(N^k/(thetaN^k+N^k)+0.25)*((0.5*K/(thetaK+K)+1))))
+It = (P*(N^kk/(thetaN^kk+N^kk)+0.25)*(0.5*K/(thetaK+K)+1))/((A*(thetaN^kk/(thetaN^kk+N^kk)+0.25)*(0.75*K/(thetaK+K)+1))+(P*(N^kk/(thetaN^kk+N^kk)+0.25)*((0.5*K/(thetaK+K)+1))))
 
 linearLike(x,c,e)=C+(x-C)*(x^2/(x^2+e))
 
 DI = (HM*(1/5)*P)/(HM + (1/5)*P) * It
 beta = It/((Icrit + 10) + It)
-etaQ = (1/5) * ((HQ * (P)) / ((1/5)*HQ + P)) * It
-etaM = (1/5) * ((HM * A) / (1/5*HM + A)) * (1 - It)
-DQB = (1/3)*tauQ * (It)/(Icrit + It)
-DUB = (1/3)*tauU * ((1/It) / (Acrit + (1/It)))
+etaQ = (1/5) * ((HQ*P) / ((1/5)*HQ + P)) * It
+etaM = (1/5) * ((HM*A) / (1/5*HM + A)) * (1 - It)
+DQB = (1/3)*tauQ*It/(Icrit + It)
+DUB = (1/3)*tauU*((1/It) / (Acrit + (1/It)))
 
 HQ' = (etaM - etaQ) + (2*HQ*(1 - (kH*HQ)/linearlike(SCSF, 0.1, 0.00001)))
 HM' = etaQ - DI*beta - dH*HM - etaM
@@ -46,9 +46,9 @@ Q(0)=0
 S(0)=1
 U(0)=0
 
-p pert=10000
+#p pert=10000
 
-global 1 t-100 {N=N+pert}
+#global 1 t-100 {N=N+pert}
 
 @ bounds=100000000000
 @ total=700
