@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import project_library as PL
 import time
-import M2_debug
+import M2_beta
 import pandas as pd
 from pathlib import Path
 
@@ -88,7 +88,7 @@ ext_stim_m = ['ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'AD
 
 start = time.time()
 for i in range(runs):
-    data = PL.lin_sim(M2_debug.beta_model, parameters, init_state, t_final, delta_t, ext_stimuli[i], ext_stim_m, return_derivatives=bDerivatives, debug_mode=bDebug)
+    data = PL.lin_sim(M2_beta.beta_model, parameters, init_state, t_final, delta_t, ext_stimuli[i], ext_stim_m, return_derivatives=bDerivatives, debug_mode=bDebug)
     outputs[i, :, :] = data[0]
     print(f"Run {i} output successfully computed")
 
