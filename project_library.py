@@ -85,8 +85,6 @@ def linear_sim_hybrid(init_values, rates, timestep_size, TFinal, path_repeat_t, 
     k_tn = rates[3]                 # kill rate of stable WBCs by stable leukocytes
     w = rates[4]                    # how quickly does E(t) -> 0 (as a function of inflammation I(t)); considering fixing
     P_crit = rates[5]               # value of inflammation at which 
-    S_a = 1                         # fixed (SA)
-    S_n = 1                         # fixed (SA)
     N_inf = 2*10**7                 # fixed (SA)
     S_PQ = rates[6]                 # secretion rate of pro by active WBCs
     S_PH = rates[7]                 # secretion rate of pro by HSPCs
@@ -102,8 +100,10 @@ def linear_sim_hybrid(init_values, rates, timestep_size, TFinal, path_repeat_t, 
     d_s = rates[17]                 # natural decay rate of stable WBCs
     d_p = rates[18]                 # natural decay rate of pro-inflammatory cytokines
     d_a = rates[19]                 # natural decay rate of anti-inflammatory cytokines
-    d_q = rates[20]                 # natural decay rate of active WBCs
+    d_q = rates[20]                 # natural decay rate of active WBCs 
     d_u = rates[21]                 # natural decay rate of immuno_suppressive WBCs
+    S_a = rates[22]                 # strength of anti-inflammatory cytokines relative to pro-inflammatory cytokines
+    S_n = rates[23]                 # strength of PAMPs & DAMPs relative to pro-inflammatory cytokines
     
     count = 1
     
@@ -369,19 +369,21 @@ def linear_sim_smooth(parameter_arr, init_value_arr, delta_t, t_final, pathogen_
     Q_CRIT = parameter_arr[24]
     Q_SHIFT = parameter_arr[25]
     U_SHIFT = parameter_arr[26]
+    mu_sa_MAX = parameter_arr[27]
+    mu_sp_MAX = parameter_arr[28]
+    S_N = parameter_arr[29]
+    S_A = parameter_arr[30]
+    R_SHIFT = parameter_arr[31]
+    D_SHIFT = parameter_arr[32]
 
     # the following parameters have been fixed for the time being
-    mu_sa_MAX = 0.7
-    mu_sp_MAX = 0.7
-    S_N = 1
-    S_A = 1
     N_inf = 2*(10**7)
     
     # the following are the omega functions appearing in the sigmoids, epsilons fixed to 0.01
     omega_R = np.log(((R_MAX-R_MIN)/0.01)-1)/R_CRIT
     omega_D = np.log(((D_MAX-D_MIN)/0.01)-1)/D_CRIT
-    omega_U = -1 * np.log(((mu_sa_MAX)/0.01)-1)/(U_CRIT - U_SHIFT)
-    omega_Q = -1 * np.log(((mu_sp_MAX)/0.01)-1)/(Q_CRIT - Q_SHIFT)
+    omega_U = np.log(((mu_sa_MAX)/0.01)-1)/(U_CRIT)
+    omega_Q = np.log(((mu_sp_MAX)/0.01)-1)/(Q_CRIT)
 
     H_output = [H_t]
     N_output = [N_t]
@@ -417,14 +419,16 @@ def linear_sim_smooth(parameter_arr, init_value_arr, delta_t, t_final, pathogen_
 
         #------------- 2a. Calculate derivatives -------------------
 
-        R_t = R_MAX - (R_MAX - R_MIN)/(1 + np.exp(omega_R*I))
-        D_t = D_MAX - (D_MAX - D_MIN)/(1 + np.exp(omega_D*I))
+        R_t = R_MAX - (R_MAX - R_MIN)/(1 + np.exp(omega_R*(I - R_SHIFT)))
+        D_t = D_MAX - (D_MAX - D_MIN)/(1 + np.exp(omega_D*(I - D_SHIFT)))
         mu_sa_t = mu_sa_MAX * 1/(1 + np.exp(omega_U*(I - U_SHIFT)))
         mu_sp_t = mu_sp_MAX * 1/(1 + np.exp(omega_Q*(I - Q_SHIFT)))
 
+        #print(D_t*H)
+
         dH = (R_t - D_t)*H
         dN = g_N*N*(1-N/N_inf) - (k_nq*Q + k_ns*S)*(N/(N_half + N))
-        dS = D_t*H - (k_sn*N*(S/(S_half+S))) - d_s*S - (mu_sa_t + mu_sp_t)*S
+        dS = D_t*H - (k_sn*(10**4 * N / (N_half + N))*(S/(S_half+S))) - d_s*S - (mu_sa_t + mu_sp_t)*S
         dQ = mu_sp_t*S - d_q*Q
         dU = mu_sa_t*S - d_u*U
         dP = S_PH*H + S_PS*S + S_PQ*Q - d_p*P
@@ -432,16 +436,22 @@ def linear_sim_smooth(parameter_arr, init_value_arr, delta_t, t_final, pathogen_
 
         # ----------- 2b. Diagnostics ----------------------
 
-        if pathogen_t[i]/delta_t - 20 < count < pathogen_t[i]/delta_t + 20:
+        '''if pathogen_t[i]/delta_t - 20 < count < pathogen_t[i]/delta_t + 20:
             print(f'T={count}')
             print(f'mu_sp_t: {mu_sp_t}')
-            print(f'mu_sa_t: {mu_sa_t}')
+            print(f'mu_sa_t: {mu_sa_t}')'''
+        '''if count < 12000 and count > 9500 and count % 20 == 0:
+            print('===================================')
+            print(f"Timestep {t} : R(t)={R_t}")
+            print(f"Timestep {t} : D(t)={D_t}")'''
 
         #------------ 2c. Update state variables using linear approximation ------------
 
-        H = H + dH*delta_t
-        if H < 0:
+        if H <= 100:
             H = 0
+            #print(f'{t}:H <= 100')
+        else:
+            H = H + dH*delta_t
 
         N = N + dN*delta_t
         if N < 0:
@@ -468,6 +478,7 @@ def linear_sim_smooth(parameter_arr, init_value_arr, delta_t, t_final, pathogen_
             A = 0
         
         I = P + S_N*N - S_A*A
+        #print(f"I(t)={I}")
         T = S + Q + U
 
         #-------------- 2d. Append to list -------------------------
@@ -583,7 +594,7 @@ def csv_to_figure(o_names, o_name_laTex, p_names, p_names_laTex, nTimesteps, ini
     # ========== 1: Load data from csv's into useable format ==========
 
     master_df = np.zeros((len(o_names), nTimesteps, nParam, nDatapoints))
-    # master_df: output -> SIs for all params sorted by time -> SIs sorted by param e.g. to access the sensitivity index of paramater 'z' in the timestep 'y' for output 'x', the index would be df[x, y, z, 1]
+    # master_df: output -> SIs for all params sorted by time -> SIs sorted by param e.g. to access the sensitivity index of parameter 'z' in the timestep 'y' for output 'x', the index would be df[x, y, z, 1]
 
     for i, str in enumerate(o_names):
 
@@ -644,7 +655,7 @@ def csv_to_figure(o_names, o_name_laTex, p_names, p_names_laTex, nTimesteps, ini
             plt.close(fig)
 
 
-def calculate_derivatives(values):
+def calculate_derivatives_hybrid(values):
 
     # this function is mostly a copy-paste of the linear_sim function; it is used to return the derivative values for given input values (passed in as the arg 'values')
 
@@ -805,3 +816,386 @@ def calculate_derivatives(values):
     
 
     return [dHdt, dNdt, dPdt, dAdt, dSdt, dQdt, dUdt]
+
+
+def calculate_derivatives_smooth(t, y, parameters):
+
+    '''
+    This function is mostly a copy-paste of the derivate section of linear_sim_smooth made compatible with solve_ivp
+    ARGS:
+    t: scalar (needed by solve_ivp)
+    y: ndarray with the form (H(t), N(t), P(t), A(t), Q(t), S(t), U(t))
+    parameters: dictionary of parameter values
+    ==============================
+    Outputs derivative values given inputs
+    '''
+    # -------- 1. Unpack dictionary, define relevant functions ----------------------------
+    g_n = parameters['g_n']
+    k_nq = parameters['k_nq']
+    k_ns = parameters['k_ns']
+    k_sn = parameters['k_sn']
+    S_PQ = parameters['S_PQ']
+    S_PH = parameters['S_PH']
+    S_PS = parameters['S_PS']
+    S_AS = parameters['S_AS']
+    S_AH = parameters['S_AH']
+    S_AU = parameters['S_AU']
+    d_s = parameters['d_s']
+    d_p = parameters['d_p']
+    d_a = parameters['d_a']
+    d_q = parameters['d_q']
+    d_u = parameters['d_u']
+    N_half = parameters['N_half']
+    R_MAX = parameters['R_MAX']
+    R_MIN = parameters['R_MIN']
+    D_MAX = parameters['D_MAX']
+    D_MIN = parameters['D_MIN']
+    R_CRIT = parameters['R_CRIT']
+    D_CRIT = parameters['D_CRIT']
+    S_half = parameters['S_half']
+    U_CRIT = parameters['U_CRIT']
+    Q_CRIT = parameters['Q_CRIT']
+    Q_SHIFT = parameters['Q_SHIFT']
+    U_SHIFT = parameters['U_SHIFT']
+    mu_SA_MAX = parameters['mu_SA_MAX']
+    mu_SP_MAX = parameters['mu_SP_MAX']
+    S_N = parameters['S_N']
+    S_A = parameters['S_A']
+    R_SHIFT = parameters['R_SHIFT']
+    D_SHIFT = parameters['D_SHIFT']
+
+    N_inf = 2 * (10**7)     # 20 million, fixed
+
+    omega_R = np.log(((R_MAX-R_MIN)/0.01)-1)/R_CRIT
+    omega_D = np.log(((D_MAX-D_MIN)/0.01)-1)/D_CRIT
+    omega_U = np.log(((mu_SA_MAX)/0.01)-1)/(U_CRIT)
+    omega_Q = np.log(((mu_SP_MAX)/0.01)-1)/(Q_CRIT)
+
+    # ---------- 2. Calculate derivatives -------------------
+    H_t = y[0]
+    N_t = y[1]
+    P_t = y[2]
+    A_t = y[3]
+    Q_t = y[4]
+    S_t = y[5]
+    U_t = y[6]
+
+    I_t = P_t + S_N*N_t - S_A*A_t
+    
+    R_t = R_MAX - (R_MAX - R_MIN)/(1 + np.exp(omega_R*(I_t - R_SHIFT)))
+    D_t = D_MAX - (D_MAX - D_MIN)/(1 + np.exp(omega_D*(I_t - D_SHIFT)))
+    mu_sa_t = mu_SA_MAX * 1/(1 + np.exp(omega_U*(I_t - U_SHIFT)))
+    mu_sp_t = mu_SP_MAX * 1/(1 + np.exp(omega_Q*(I_t - Q_SHIFT)))
+
+    dH = (R_t - D_t)*H_t
+    dN = g_n*N_t*(1-N_t/N_inf) - (k_nq*Q_t + k_ns*S_t)*(N_t/(N_half + N_t))
+    dS = D_t*H_t - (k_sn*N_t*(S_t/(N_t+S_t))) - d_s*S_t - (mu_sa_t + mu_sp_t)*S_t
+    dQ = mu_sp_t*S_t - d_q*Q_t
+    dU = mu_sa_t*S_t - d_u*U_t
+    dP = S_PH*H_t + S_PS*S_t + S_PQ*Q_t - d_p*P_t
+    dA = S_AH*H_t + S_AS*S_t + S_AU*U_t -d_a*A_t
+
+    return [dH, dN, dP, dA, dQ, dS, dU]
+
+
+def calculate_derivatives_2(t, y, parameters):
+    '''
+    t: scalar (needed by solve_ivp)
+    y: ndarray with the form (H(t), N(t), S(t), Q(t), U(t), P(t), A(t), K(t))
+    parameters: dictionary of parameter values
+    ==============================
+    Outputs derivative values given inputs
+    This is the calculate_derivatives function for model version #2
+    '''
+
+    # -------- 1. Unpack dictionary, define relevant functions ----------------------------
+    g_n = parameters['g_n']
+    k_nq = parameters['k_nq']
+    k_ns = parameters['k_ns']
+    k_sn = parameters['k_sn']
+    S_PQ = parameters['S_PQ']
+    S_PH = parameters['S_PH']
+    S_PS = parameters['S_PS']
+    S_AS = parameters['S_AS']
+    S_AH = parameters['S_AH']
+    S_AU = parameters['S_AU']
+    d_s = parameters['d_s']
+    d_p = parameters['d_p']
+    d_a = parameters['d_a']
+    d_q = parameters['d_q']
+    d_u = parameters['d_u']
+    R_MAX = parameters['R_MAX']
+    D_MAX = parameters['D_MAX']
+    S_N = parameters['S_N']
+    R_half = parameters['R_half']
+    D_half = parameters['D_half']
+    S_K = parameters['S_K']
+    I_half = parameters['I_half']
+    U_half = parameters['U_half']
+    Q_half = parameters['Q_half']
+    U_MAX = parameters['U_MAX']
+    Q_MAX = parameters['Q_MAX']
+    d_k = parameters['d_k']
+    K_half = parameters['K_half']
+    S_KS = parameters['S_KS']
+    tau = parameters['tau']
+    tau_half = parameters['tau_half']
+    H_oo = parameters['H_oo']
+
+    N_inf = 2 * (10**7)     # 20 million, fixed
+    N_half = 1000           # fixed
+    S_half = 1000           # fixed
+
+    # ------------- 2. Set variable values -----------------
+    H_t = y[0]
+    N_t = y[1]
+    S_t = y[2]
+    Q_t = y[3]
+    U_t = y[4]
+    P_t = y[5]
+    A_t = y[6]
+    K_t = y[7]
+
+    f_A = I_half / (I_half + A_t)
+    I_t = f_A * (P_t + S_N*N_t + S_K*K_t)
+
+    # -------------- 3. Calculate derivatives ---------------
+    R_i = R_MAX * N_t / (R_half + N_t) + 0.1                  # self-renewal (dh/dt)
+    D_i = D_MAX * N_t / (D_half + N_t) + 0.1                  # differentiation (dh/dt)
+
+    S_PH_i = tau * (I_t**4 / (tau_half**4 + I_t**4))      # HSPC pro-inflammatory cytokine secretion modulated by inflammation, fixed hill coefficient to k=4
+
+    dH_dt = (R_i - D_i)*H_t + ((1-(H_t / H_oo))*H_t)*(I_t/(I_t + 100)) - 0.05*H_t
+    dN_dt = g_n*N_t*(1-(N_t/N_inf)) - (k_nq*Q_t + k_ns*S_t)*(N_t/(N_half + N_t))
+    dS_dt = D_i*H_t - k_sn*((10**4 * N_t)/(N_half + N_t))*(S_t/(S_half + S_t)) - U_MAX*(I_t/(U_half + I_t))*S_t - Q_MAX*(I_t/(Q_half + I_t))*S_t - d_s*S_t
+    dQ_dt = Q_MAX*(I_t/(Q_half + I_t))*S_t - d_q*Q_t
+    dU_dt = U_MAX*(I_t/(U_half + I_t))*S_t - d_u*U_t
+    dP_dt = S_PH_i*H_t + S_PS*S_t + S_PQ*Q_t - d_p*P_t
+    dA_dt = S_AH*H_t + S_AS*S_t + S_AU*U_t - d_a*A_t
+    dK_dt = S_KS*(k_sn*((10**4 * N_t)/(N_half + N_t))*(S_t/(S_half + S_t)) + ((10**4 * S_t)/(S_half + S_t))*(I_t/(K_half + I_t))) - d_k*K_t
+
+    # ------------- 4. Diagnostics -----------------------------
+    print(f'Timestep {t}: {k_sn*((10**4 * N_t)/(N_half + N_t))*(S_t/(S_half + S_t))}')
+
+    # ------------- 5. Return derivatives ----------------------
+
+    return [dH_dt, dN_dt, dS_dt, dQ_dt, dU_dt, dP_dt, dA_dt, dK_dt]
+
+
+def linear_like(x, C, e):
+    '''
+    This function acts like f(x)=x for x >> e, approaches C for x << e
+    Used in model where ratios are concerned and the denominator can equal 0 which would otherwise create an error
+
+    '''
+
+    return C + (x-C)*(x**2/(x**2 + e))
+
+
+def Model_2(t, y, parameters):
+    '''
+    ARGS:
+    - parameters : dictionary of relevant parameter values
+    - y : model variables
+    - t : to make compatible with solve_ivp
+    OUTPUTS:
+    - derivatives : array of derivative values
+    '''
+    # ----------- 1. Load parameter values --------------------
+
+    # HSPC parameters
+    k_H = parameters['k_H']                 # number of SCSFs consumed per fully renewing proliferating HSPC
+    dH = parameters['dH']                   # decay of proliferating HSPCs owing to their sped up cycling
+
+    # sensitivity parameters
+
+    theta_N = parameters['theta_N']
+    theta_K = parameters['theta_K']
+    tau_Q = parameters['tau_Q']
+    tau_U = parameters['tau_U']
+
+
+    # decay rate parameters
+
+    d_SCSF = parameters['d_SCSF']          # base decay rate of SCSFs
+    d_S = parameters['d_S']                # base decay rate of S cells
+    d_Q = parameters['d_Q']                # base decay rate of Q cells
+    d_U = parameters['d_U']                # base decay rate of U cells
+    d_P = parameters['d_P']                # base decay rate of pro-inflammatory cytokines
+    d_A = parameters['d_A']                # base decay rate of anti-inflammatory cytokines
+
+    # S_HP = parameters['S_HP']
+
+    # pathogen parameters
+    g_N = parameters['g_N']
+    N_oo = parameters['N_oo']
+    N_half = parameters['N_half']
+
+    # Secretion rate parameters
+
+    S_PH = parameters['S_PH']                  # base rate of P by PH
+    S_PS = parameters['S_PS']                  # base rate of P by S
+    S_PQ = parameters['S_PQ']                  # base rate of P by Q
+
+    S_AU = parameters['S_AU']
+    S_AH = parameters['S_AH']
+    S_AS = parameters['S_AS']
+
+    S_SCSF = parameters['S_SCSF']              # secretion of stem cell supporting factors (SCSF) by the BM Niche
+
+    S_KD = parameters['S_KD']                  # amount of DAMPs secreted per cell death
+
+    # kill rate parameters
+    k_sn = parameters['k_sn']                  # N kills S
+    k_nq = parameters['k_nq']                  # Q kills N (generally high)
+    k_ns = parameters['k_ns']                  # S kills N (generally low)
+
+    # misc parameters
+    R_KU = parameters['R_KU']                  # rate at which immuno-suppressive cells heal tissue damage
+    I_crit = parameters['I_crit']
+    A_crit = parameters['A_crit']
+    K_crit = parameters['K_crit']              # concentration of DAMPs (K(t)) needed to dampen SCSF production by 0.5x
+    k = parameters['k']                        # hill-type coefficient
+
+
+    # ----------- 2. Load variable values --------------------
+
+    QH_t = y[0]             # Quiescent HSPCs
+    PH_t = y[1]             # Proliferating HSPCs
+    N_t = y[2]              # Pathogen (PAMPs)
+    P_t = y[3]              # Pro-inflammatory cytokines
+    A_t = y[4]              # Anti-inflammatory cytokines
+    SCSF_t = y[5]           # Stem Cell Supporting Factors (secreted by BM Niche tissue)
+    K_t = y[6]              # Tissue Damage (DAMPs)
+    Q_t = y[7]              # Active Leukocytes (e.g. M1 Macrophages, NK Cells, Neutrophils, etc.)
+    S_t = y[8]              # Stable Leukocytes (i.e. steady-state leukocytes)
+    U_t = y[9]              # Immuno-suppressive Leukocytes (e.g. M2 Macrophages, T-cells, etc.)
+
+    # ----------- 3. Calculate functions in derivatives --------------------
+    I_t = (P_t*((N_t**k)/(theta_N**k + N_t**k) + 0.25)*((0.5 * (K_t)/(theta_K + K_t) + 1))) / (A_t*(theta_N**k/(theta_N**k + N_t**k) + 0.25)*(0.75 * (K_t)/(theta_K + K_t) + 1))
+    #print(f'I_t: {I_t}')
+    D_I = (PH_t*(1/5)*P_t)/(PH_t + (1/5)*P_t) * (I_t/(I_crit + I_t))              # proportion of proliferating HSPCs differentiating (either symmetric or asymmetric)
+    #print(f'D_I: {D_I}')
+    beta = I_t/((I_crit + 10) + I_t)                              # proportion of differentiating proliferating HSPCs asymmetrically differentiating (1 parent HSPC -> 2 daughter WBCs)
+
+    neta_Q = (1/5) * ((QH_t * (P_t)) / (QH_t + (1/5)*P_t)) * (I_t/(I_crit + I_t))
+    #print(f'(1/5) * ((QH_t * (P_t)) / (QH_t + (1/5)*P_t)): {(1/5) * ((QH_t * (P_t)) / (QH_t + (1/5)*P_t))}')
+    #print(f'(I_t/(I_crit + I_t)): {(I_t/(I_crit + I_t))}')
+    #print(f'neta_Q: {neta_Q}')
+    neta_P = (1/5) * ((PH_t * A_t) / (1/5*PH_t + A_t)) * ((1/I_t)/(A_crit + (1/I_t)))
+    #print(f'neta_P: {neta_P}')
+    # IMPORTANT: These next two functions control how the stable leukocytes compartment (S) upregulate the immuno-suppressive and active compartments (U, Q respectively); relates to our research question
+
+    D_Q = (1/3)*tau_Q * (I_t)/(I_crit + I_t)
+    D_U = (1/3)*tau_U * ((1/I_t) / (A_crit + (1/I_t)))
+
+
+    # ----------- 4. Calculate derivatives --------------------
+
+    dPH_dt = neta_Q - D_I*beta*PH_t - dH*PH_t - neta_P
+    #print(f'dPH_dt: {dPH_dt}')
+    dQH_dt = (neta_P - neta_Q) + (2*QH_t*(1 - (k_H*QH_t)/(SCSF_t)))
+    #print(f'dQH_dt: {dQH_dt}')
+    dS_dt = (D_I*(1 - beta) + 2*D_I*beta)*PH_t - D_Q*S_t - D_U*S_t - d_S*S_t - (k_sn*N_t*(S_t/(k_sn*N_t+S_t)))
+
+    dQ_dt = D_Q*S_t - d_Q*(1 - 0.5*(I_t/(I_crit + I_t)))*Q_t
+
+    dU_dt = D_U*S_t - d_U*U_t
+
+    dSCSF_dt = S_SCSF*(K_crit / (K_crit + K_t)) - d_SCSF*SCSF_t
+
+    dP_dt = (S_PH*PH_t + S_PQ*Q_t)*(0.5*(I_t**k)/(I_crit**k + I_t**k)+0.5) + S_PS*S_t - d_P*P_t
+    #print(f'dP_dt: {dP_dt}')
+    dA_dt = (S_AH*PH_t + S_AU*U_t)*(0.5*((1/I_t) / (I_crit + (1/I_t)))+0.5)  + S_AS*S_t - d_A*A_t
+
+    dK_dt = S_KD*(k_sn*N_t*(S_t/(k_sn*N_t+S_t))) - R_KU*U_t*((1/I_t)/(I_crit + (1/I_t)))*(K_t/(K_crit + K_t))
+
+    dN_dt = g_N*N_t*(1-N_t/N_oo) - (1/3)*(k_nq*Q_t + k_ns*S_t)*(N_t/(N_half + N_t))
+
+    # ---------- 5. Return derivative -------------------
+
+    return np.array([dQH_dt, dPH_dt, dN_dt, dP_dt, dA_dt, dSCSF_dt, dK_dt, dQ_dt, dS_dt, dU_dt])
+
+
+def lin_sim(ODE_eq, parameters, init_y, t_final, delta_t, ext_stimuli, ext_stim_method, return_Inflammation = True, return_derivatives=False, debug_mode = False):
+    '''
+    ARGS:
+    ODE_eq : Function argument, first-order derivatives of system output
+
+    parameters : dictionary of relevant parameters, must be compatible with ODE_eq otherwise an error will most likely occur
+
+    init_y : Initial state of the system, init_y=(y_1(0), y_2(0), ..., y_n(0))
+
+    t_final : Final timestep to reach
+
+    delta_t : Timestep size
+
+    ext_stimuli : np.matrix() -> rows = model output type, columns = specific timestep, array of external inputs to the system; MUST match output matrix in shape
+
+    ext_stim_method: vector of strings, 'ADD' = add external stimuli matrix element wise to model output, 'OVERWRITE' = overwrite calculated model output with ext_stimuli input, this argument
+                     must be a vector of strings with the same length as init_y (the number of outputs), each element will denote how to handle the external stimuli input for each matching
+                     specific model output (e.g. ext_stim_method[i] == 'ADD' means that for each timestep, the loop will add ext_stimuli[i, timestep] to model_output[i, timestep])
+
+    return_Inflammation : Whether model_output should include the state variable I(t)
+
+    return_derivatives : Whether tuple returned by function should include derivative information, will appear in data[1]
+
+    debug_mode : Whether tuple returned by function should include debug terms (ODE_eq will determine what debug terms includes); will appear in data[2]
+
+    OUTPUT:
+    data : 3 tuple of form (model_output, derivatives_output, debug_output); if return_derivatives = False, derivative_outputs = 0 (same applies to debug_output)
+    ''' 
+    def calculate_I(P_t, A_t, K_t, N_t, theta_N, theta_K, k):
+
+        return (P_t*(N_t**k/(theta_N**k + N_t**k) + 0.25)*((0.5 * (K_t)/(theta_K + K_t) + 1))) / (A_t*(theta_N**k/(theta_N**k + N_t**k) + 0.25)*(0.75 * (K_t)/(theta_K + K_t) + 1))
+
+    timesteps = np.arange(stop=t_final, step=delta_t)
+    model_output = np.zeros((len(init_y), len(timesteps)))
+    model_output[:, 0] = init_y
+    derivative_output = np.zeros((len(init_y), len(timesteps)))
+
+    if return_Inflammation:
+        inflammation_arr = []
+
+    if debug_mode:
+        debug_output = np.zeros((10, len(timesteps)))
+    else:
+        debug_output = 0
+
+    for i, t in enumerate(timesteps[1:]):
+        
+        ys = model_output[:, i]
+
+        derivatives = ODE_eq(t, ys, parameters, debug_mode)
+        if debug_mode:
+            derivative_output [:, i] = derivatives[0]
+            debug_output = derivatives[1]
+            model_output[:, i+1] = ys + delta_t*derivatives[0]        # Euler approximation step here
+        else:
+            derivative_output [:, i] = derivatives
+            model_output[:, i+1] = ys + delta_t*derivatives         # Euler approximation step here
+
+        #model_output[:, i+1] = ys + delta_t*derivative_output         # Euler approximation step here
+
+        if return_Inflammation:
+            
+            if i == 0:
+                
+                inflammation_arr.append(calculate_I(model_output[3, i], model_output[4, i], model_output[6, i], model_output[2, i], parameters['theta_N'], parameters['theta_K'], parameters['k']))
+            
+            inflammation_arr.append(calculate_I(model_output[3, i+1], model_output[4, i+1], model_output[6, i+1], model_output[2, i+1], parameters['theta_N'], parameters['theta_K'], parameters['k']))
+
+        for k, method in enumerate(ext_stim_method):
+            
+            if method == 'ADD':
+                model_output[k, i+1] = model_output[k, i+1] + ext_stimuli[k, i+1]
+            elif method == 'OVERWRITE':
+                model_output[k, i+1] = ext_stimuli[k, i+1]
+
+    if return_Inflammation:
+        model_output = np.vstack((model_output, inflammation_arr))
+
+    data = (model_output, derivative_output, debug_output)
+
+    return data
+            
