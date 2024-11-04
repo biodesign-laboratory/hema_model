@@ -16,12 +16,12 @@ It=(P*(N^kk/(thetaN^kk+N^kk)+0.25)*(0.5*K/(thetaK+K)+1))/(termA+termB)
 
 linearLike(x,c,e)=c+(x-c)*(x^2/(x^2+e))
 
-DI = (HM*(1/5)*P)/(HM+(1/5)*P)*It
-beta = It/((Icrit+10)+It)
-etaQ = (1/5)*((HQ*P)/((1/5)*HQ+P))*It
-etaM = (1/5)*((HM*A)/(1/5*HM+A))*(1-It)
+DI=It*HM*P/(HM+5*P)
+beta = It/(Icrit+10+It)
+etaQ = (1/5)*(HQ*P/(HQ/5+P))*It
+etaM = (1/5)*(HM*A/(HM/5+A))*(1-It)
 DQB = (1/3)*tauQ*It/(Icrit+It)
-DUB = (1/3)*tauU*((1/It)/(Acrit+(1/It)))
+DUB = (1/3)*tauU*(1-It)/(Acrit+(1-It))
 
 #test=-h+acrit
 
@@ -31,13 +31,14 @@ km(K)=Kcrit/(Kcrit+K)
 im(It)=0.5*It/(2+It)+0.5
 
 HQ'=(etaM-etaQ)+(2*HQ*(1-(kH*HQ)/linearlike(SC,0.1,0.00001)))
-HM'=etaQ-DI*beta-dH*HM-etaM
-N'=gN*N*(1-(N/Noo))-knq*Q+kns*S*(N/(Nhalf+N))
+HM'=(etaQ-etaM)-DI*beta-dH*HM
+N'=gN*N*(1-(N/Noo))-(knq*Q+kns*S)*(N/(Nhalf+N))
 P'=(SPH*HM+SPQ*Q)*im(It)+SPS*S-dP*P
 A'=(SAH*HM+SAU*U)*im(It)+SAS*S-dA*A
 SC'=SSCSF*km(K)-dSCSF*SC
 K'=SKD*ksn*N*S/(ksn*N+S)-RKU*U*km(K)
 Q'=DQB*S-dQ*(1-0.5*It/(2+It))*Q
+#S'=DI*(1-beta)+2*DI*beta-DQB*S-DUB*S-dS*S-(ksn*N*((1-(DQB+DUB+dS))*S/(ksn*N+(1-(DQB+DUB+dS))*S)))
 S'=DI*(1-beta)+2*DI*beta-DQB*S-DUB*S-dS*S-ksn*N*S/(ksn*N+S)
 U'=DUB*S-dU*U
 
