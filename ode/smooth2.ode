@@ -1,7 +1,7 @@
 # MX here might be from degeneracy in equations
 
 p kh=3,dh=0.05,thetan=2000,thetak=5000,tauq=0.5,tauu=0.5
-p dscsf=0.3,sscsf=10001,skd=1,rku=100,icrit=.2,kcrit=10000
+p dscsf=0.3,sscsf=10000,skd=1,rku=100,icrit=.2,kcrit=10000
 p acrit=3,kk=1
 
 p gn=.1,knq=10v,kns=0.5,ksn=3
@@ -36,19 +36,14 @@ N'=gN*N*(1-(N/Noo))-(knq*Q+kns*S)*(N/(Nhalf+N))
 P'=(SPH*HM+SPQ*Q)*im(It)+SPS*S-dP*P
 A'=(SAH*HM+SAU*U)*im(It)+SAS*S-dA*A
 SC'=SSCSF*km(K)-dSCSF*SC
-K'=SKD*ksn*N*S/(ksn*N+S)-RKU*U*km(K)
+K'=SKD*ksn*N*S/(ksn*N+S)-RKU*U*(1-km(k))
 Q'=DQB*S-dQ*(1-0.5*It/(2+It))*Q
-#S'=DI*(1-beta)+2*DI*beta-DQB*S-DUB*S-dS*S-(ksn*N*((1-(DQB+DUB+dS))*S/(ksn*N+(1-(DQB+DUB+dS))*S)))
-S'=DI*(1-beta)+2*DI*beta-DQB*S-DUB*S-dS*S-ksn*N*S/(ksn*N+S)
+S'=DI*(1-beta)+2*DI*beta-DQB*S-DUB*S-dS*S-(ksn*N*((1-(DQB+DUB+dS))*S/(ksn*N+(1-(DQB+DUB+dS))*S)))
+#S'=DI*(1-beta)+2*DI*beta-DQB*S-DUB*S-dS*S-ksn*N*S/(ksn*N+S)
 U'=DUB*S-dU*U
 
 
-#aux in=i
-#aux dnA=gn*n*(1-n/ninf)
-#aux dnB=(knq*q+kns*s)*(n/(nhalf+n))
-#H(0)=0
-
-HQ(0)=20
+HQ(0)=20000
 HM(0)=0
 N(0)=0
 P(0)=10000
@@ -59,12 +54,31 @@ Q(0)=0
 S(0)=1
 U(0)=0
 
+# derivatives
+aux dhqa=(etaM-etaQ)+(2*HQ*(1-(kH*HQ)/linearlike(SC,0.1,0.00001)))
+aux dhma=(etaQ-etaM)-DI*beta-dH*HM
+aux dna=gN*N*(1-(N/Noo))-(knq*Q+kns*S)*(N/(Nhalf+N))
+aux dPa=(SPH*HM+SPQ*Q)*im(It)+SPS*S-dP*P
+aux daa=(SAH*HM+SAU*U)*im(It)+SAS*S-dA*A
+aux dSCa=SSCSF*km(K)-dSCSF*SC
+aux dKa=SKD*ksn*N*S/(ksn*N+S)-RKU*U*(1-km(K))
+aux dQa=DQB*S-dQ*(1-0.5*It/(2+It))*Q
+aux dSa=DI*(1-beta)+2*DI*beta-DQB*S-DUB*S-dS*S-ksn*N*S/(ksn*N+S)
+aux dUa=DUB*S-dU*U
+
+aux dkaOne=SKD*ksn*N*S/(ksn*N+S)
+aus dkaTwo=RKU*U*km(K)
+
+# other
+aux kmval=km(k)
+aux ita=it
+
 #p pert=10000
 
 #global 1 t-100 {N=N+pert}
 
 @ bounds=100000000000
-#@ total=700
+@ total=672
 #@ nplot=2
 @ xp=t,yp=HQ
 #xp2=t,yp2=n
