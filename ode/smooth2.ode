@@ -73,9 +73,9 @@ aus dkaTwo=RKU*U*km(K)
 aux kmval=km(k)
 aux ita=it
 
-#p pert=10000
+p pert=10000
 
-#global 1 t-100 {N=N+pert}
+global 1 t-100 {N=N+pert}
 
 @ bounds=100000000000
 @ total=672
