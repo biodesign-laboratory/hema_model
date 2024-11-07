@@ -8,7 +8,7 @@ from pathlib import Path
 
 run_number = 11      # used in file names
 
-runs = 10
+runs = 1
 delta_t = 0.01
 t_final = 672       # 672 hours = 4 weeks
 num_outputs = 11
@@ -74,7 +74,7 @@ ext_stimuli = np.zeros((runs, num_outputs, len(timesteps)))
 for i in range(runs):       # add stimuli here
 
     ext_stimuli[i, 2, int(100/delta_t)] = 0 + 2000*i
-    ext_stimuli[i, 2, int(300/delta_t)] = 0 + 2000*i        # optional; nosocomial infection
+    #ext_stimuli[i, 2, int(300/delta_t)] = 0 + 2000*i        # optional; nosocomial infection
 
 if bDerivatives:
     derivatives = np.zeros((runs, 10, len(timesteps)))
@@ -233,8 +233,11 @@ if graph_derivatives:
             axs[i%3, i//3].plot(timesteps, derivatives[j, i])
             axs[i%3, i//3].title.set_text(titles[i])
 
+            
 
     path = Path.cwd() / 'Runs' / f'Exp_{run_number}' / f'derivatives_{run_number}.png'
+
+    print('saving derivative figure to',path)
     plt.savefig(path, dpi=300, bbox_inches='tight')
     plt.show()
 
