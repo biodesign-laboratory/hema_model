@@ -8,7 +8,7 @@ from pathlib import Path
 
 run_number = 11      # used in file names
 
-runs = 1
+runs = 10
 delta_t = 0.01
 t_final = 672       # 672 hours = 4 weeks
 num_outputs = 11
