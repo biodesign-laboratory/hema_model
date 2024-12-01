@@ -992,7 +992,7 @@ def linear_like(x, C, e):
     return C + (x-C)*(x**2/(x**2 + e))
 
 
-def model_3_derivatives(t, y, parameters):
+def model_2_derivatives(t, y, parameters):
     '''
     ARGS:
     - parameters : dictionary of relevant parameter values
