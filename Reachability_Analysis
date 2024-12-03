@@ -1,0 +1,47 @@
+#Reachability_Analysis
+using ReachabilityAnalysis, ModelingToolkit, Plots, OrdinaryDiffEq, DifferentialEquations, DiffEqCallbacks
+include("Hematopoiesis_Model")
+
+function linearlike(x,c,e)
+    c + (x - c) * (x^2 / (x^2 + e))
+end
+
+#Initial Conditions
+Hq = [11100.0, 11100.1]
+Hm = [1000.0, 1000.1]
+N = [15.0, 30.0]
+S = [10.0, 10.1]
+Q = [1.0, 1.1]
+U = [0.5, 0.6]
+SCSF = [32000.0, 32000.1]
+P = [1000.0, 1000.1]
+A = [1000.0, 1000.1]
+K = [0.0, 0.1]
+
+#Create input hyperrectangle given earlier initial conditions
+X0 = Hyperrectangle(low = [Hq[1], Hm[1], N[1], S[1], Q[1], U[1], SCSF[1], P[1], A[1], K[1]], high = [Hq[2], Hm[2], N[2], S[2], Q[2], U[2], SCSF[2], P[2], A[2], K[2]])
+
+#Create an initial value problem, given our hyperrectangle and ODEs
+function model(X0)
+    S = @system(x' = smooth_model!(x), dim:10)
+    return IVP(S, X0)
+end
+
+#Solve the IVP
+prob = model(X0)
+sol = solve(prob, T=0.1);
+
+#plot solution with the plotlyjs backend for more exact reading
+plotlyjs()
+Hq = plot(sol, vars=(0,1), xlabel="time", ylabel="Hq")
+Hm = plot(sol, vars=(0,2), xlabel="time", ylabel="Hm")
+N = plot(sol, vars=(0,3), xlabel="time", ylabel="PAMPS")
+S = plot(sol, vars=(0,4), xlabel="time", ylabel="Stable")
+Q = plot(sol, vars=(0,5), xlabel="time", ylabel="Active")
+U = plot(sol, vars=(0,6), xlabel="time", ylabel="Inactive")
+SCSF = plot(sol, vars=(0,7), xlabel="time", ylabel="SCSF")
+P = plot(sol, vars=(0,8), xlabel="time", ylabel="Pro-Inflammatory")
+A = plot(sol, vars=(0,9), xlabel="time", ylabel="Anti-Inflammatory")
+K = plot(sol, vars=(0,10), xlabel="time", ylabel="DAMPS")
+plot(Hq, Hm, N, S, Q, U, SCSF, P, A, K, layout = (4, 3), w = 1)
+

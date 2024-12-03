@@ -1,0 +1,21 @@
+#ODE_Solver
+using ReachabilityAnalysis, ModelingToolkit, Plots, OrdinaryDiffEq, DifferentialEquations, DiffEqCallbacks
+include("Hematopoiesis_Model")
+
+x0 = [111000, 1000, 15, 10, 1, 0.5, 32000, 1000, 1000, 0]
+t_span = (0.0, 300.0)
+
+prob = ODEProblem(smooth_model!, x0, t_span)
+sol = solve(prob)
+
+Hq = plot(sol, vars=(0,1), xlabel="time", ylabel="Hq")
+Hm = plot(sol, vars=(0,2), xlabel="time", ylabel="Hm")
+N = plot(sol, vars=(0,3), xlabel="time", ylabel="PAMPS")
+S = plot(sol, vars=(0,4), xlabel="time", ylabel="Stable")
+Q = plot(sol, vars=(0,5), xlabel="time", ylabel="Active")
+U = plot(sol, vars=(0,6), xlabel="time", ylabel="Inactive")
+SCSF = plot(sol, vars=(0,7), xlabel="time", ylabel="SCSF")
+P = plot(sol, vars=(0,8), xlabel="time", ylabel="Pro-Inflammatory")
+A = plot(sol, vars=(0,9), xlabel="time", ylabel="Anti-Inflammatory")
+K = plot(sol, vars=(0,10), xlabel="time", ylabel="DAMPS")
+plot(Hq, Hm, N, S, Q, U, SCSF, P, A, K, layout = (4, 3), w = 1, legend = false)
