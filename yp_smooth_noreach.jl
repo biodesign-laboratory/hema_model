@@ -2,48 +2,50 @@
 
 using Plots, DifferentialEquations
 
-# Extract rates into individual variables
-    A_crit = 3
-    N_inf = 20000000
-    N_half = 500
-    S_PQ = 5
-    S_PH = 3
-    S_PS = 1
-    S_AS = 1
-    S_AH = 3
-    S_AU = 7
-    
-    d_s = 0.8
-    d_p = 0.95
-    d_a = 0.95
-    d_q = 0.9
-    d_u = 0.8
-    g_n = 0.1
-    
-    k_nq = 10
-    k_ns = 0.5
-    k_sn = 3
-
-    H_0 = 1000
-    N_0 = 0.0
-    P_0 = 600
-    A_0 = 1160
-
-#Variables
+# parameters
+K_h = 3
+d_h = 0.05
 theta_N = 2000
 theta_K = 5000
-k = 1
-K_h = 3
-K_crit = 10000
-d_scsf = 0.3
-s_scsf = 10000
-d_h = 0.05
-S_KD = 1
-R_KU = 100
-kk = 1
-I_crit = 0.2
 tauQ = 0.5
 tauU = 0.5
+
+d_scsf = 0.3
+d_s = 0.8
+d_q = 0.9
+d_u = 0.8
+d_p = 0.95
+d_a = 0.95
+
+g_n = 0.1
+N_inf = 20000000
+N_half = 500
+S_PH = 3
+S_PS = 1
+S_PQ = 5
+S_AU = 7
+S_AH = 3
+S_AS = 1
+s_scsf = 10000
+S_KD = 1
+
+k_sn = 3
+k_nq = 10
+k_ns = 0.5
+R_KU = 100
+I_crit = 0.2
+K_crit = 10000
+k = 1
+A_crit = 3
+
+H_0 = 1000
+N_0 = 0.0
+P_0 = 600
+A_0 = 1160
+
+# exponent
+kk = 1
+
 
 function linearlike(x,c,e)
     c + (x - c) * (x^2 / (x^2 + e))
@@ -64,6 +66,7 @@ x[10] = K
 
 
 function biomodel(dx, x, p, t)
+    Hq=x[1];
     I = (x[8] * ((x[3]^kk/(x[3]^kk + theta_N^kk)) + 0.25) * ((0.5 * (x[10]/((theta_K) + x[10]))) + 1)) / ((x[9] * ((theta_N^kk/(x[3]^kk + theta_N^kk)) + 0.25) * ((0.75 * (x[10]/((theta_K) + x[10]))) + 1)) + (x[8] * ((x[3]^kk/(x[3]^kk + theta_N^kk)) + 0.25) * ((0.5 * (x[10]/((theta_K) + x[10]))) + 1)))
     nu_M = 0.2 * ((x[2] * x[9])/(0.2 * x[2] + x[9])) * (1 - I)
     nu_Q = 0.2 * ((x[1] * x[8])/(0.2 * x[1] + x[8])) * I
