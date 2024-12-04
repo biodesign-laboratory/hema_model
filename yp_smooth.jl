@@ -124,12 +124,14 @@ derivative_values = []
     dx[8] = (S_PH * x[2] + S_PQ * x[5]) * (0.5 * I / (2+ I) + 0.5) + S_PS * x[4] - D_p
     dx[9] = (S_AH * x[2] + S_AU * x[6]) * (0.5 * I / (2+ I) + 0.5) + S_AS * x[4] - D_a
     dx[10] = S_KD * (k_sn * x[3] * (x[4]/(k_sn * x[3] + x[4]))) - (R_KU * x[6] * (x[10]/K_crit * x[10]))
-    push!(derivative_values, (t, copy(dx[10])))
+    #push!(derivative_values, (t, copy(dx[10])))
     return dx
 end
 
+
+
 #X0 = Hyperrectangle(low = fill(0.99, 10), high = fill(1.00, 10))
-X0 = Hyperrectangle(low = [20000.0, 0.0, 0.0, 1.0, 0.0, 0.0, 10000.0, 10000.0, 10000.0, 0.0], high = [25000.0, 0.1, 0.1, 1.1, 0.1, 0.1, 10000.1, 10000.1, 10000.1, 0.1])
+X0 = Hyperrectangle(low = [20000.0, 0.0, 0.0, 1.0, 0.0, 0.0, 10000.0, 10000.0, 10000.0, 0.0], high = [20000.0, 0., 0., 1., 0., 0.1, 10000., 10000., 10000., 0.])
 
 function model(X0)
     S = @system(x' = biomodel7d!(x), dim:10)
@@ -138,7 +140,7 @@ end
 
 
 prob = model(X0)
-sol = solve(prob, T=10.0, progress = true);
+sol = solve(prob, T=.1, progress = true,alg=TMJets21a());
 
 H_m = plot(sol, vars=(0,1), xlabel="time", ylabel="H_m")
 H_q = plot(sol, vars=(0,2), xlabel="time", ylabel="H_q")
@@ -152,3 +154,4 @@ A = plot(sol, vars=(0,9), xlabel="time", ylabel="Anti-Inflammatory")
 K = plot(sol, vars=(0,10), xlabel="time", ylabel="DAMPS")
 plot(H_m, H_q, N, S, Q, U, SCSF, P, A, K, layout = (4, 3), w = 1)
 #plot(first.(derivative_values), last.(derivative_values))
+gui()
