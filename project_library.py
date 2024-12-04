@@ -1082,7 +1082,8 @@ def model_2_derivatives(t, y, parameters):
     I_t = (P_t * amp_P_by_N * amp_P_by_K) / ((A_t * damp_A_by_N * amp_A_by_K) + (P_t * amp_P_by_N * amp_P_by_K))
 
     #D_I = (HM_t*(1/5)*P_t)/(HM_t + (1/5)*P_t) * I_t              # proportion of proliferating HSPCs differentiating (either symmetric or asymmetric)
-    D_I = (HM_t*(1/5)*P_t)/((1/5)*HM_t + P_t) * I_t
+    #D_I = (HM_t*(1/5)*P_t)/((1/5)*HM_t + P_t) * I_t
+    D_I = (HM_t*(1/5)*P_t)/((1/5)*HM_t + P_t)
 
     beta = I_t/(I_crit + I_t)                              # proportion of differentiating proliferating HSPCs asymmetrically differentiating (1 parent HSPC -> 2 daughter WBCs)
 
@@ -1095,8 +1096,8 @@ def model_2_derivatives(t, y, parameters):
     #print(f'eta_M: {eta_M}')
     # IMPORTANT: These next two functions control how the stable leukocytes compartment (S) upregulate the immuno-suppressive and active compartments (U, Q respectively); relates to our research question
 
-    D_Q = (1/3)*tau_Q * (I_t)/(I_crit + I_t)
-    D_U = (1/3)*tau_U * (1-I_t) / (A_crit + (1 - I_t))
+    '''D_Q = (1/3)*tau_Q * (I_t)/(I_crit + I_t)
+    D_U = (1/3)*tau_U * (1-I_t) / (A_crit + (1 - I_t))'''
 
     # ----------- 3b. debug ------------------
     # new terms to replace D_Q, D_U, and N + S -> __ in dS/dt
@@ -1105,6 +1106,7 @@ def model_2_derivatives(t, y, parameters):
 
 
     # ----------- 4. Calculate derivatives --------------------
+    # do not delete commented out equations, this is useful for keeping a record of changes in case something breaks
 
     dHM_dt = eta_Q - D_I*beta - dH*HM_t - eta_M
     #dHM_dt = eta_Q - D_I*beta - dH*HM_t - eta_M - (0.001*N_t*((1 - (1/5 + dH + 1/5))*HM_t/(0.001*N_t+(1 - (1/5 + dH + 1/5))*HM_t))) left off here; producing "invalid value encountered in scalar divide"
