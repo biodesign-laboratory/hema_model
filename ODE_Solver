@@ -2,10 +2,10 @@
 using ReachabilityAnalysis, ModelingToolkit, Plots, OrdinaryDiffEq, DifferentialEquations, DiffEqCallbacks
 include("Hematopoiesis_Model")
 
-x0 = [111000, 1000, 15, 10, 1, 0.5, 32000, 1000, 1000, 0]
-t_span = (0.0, 300.0)
+x0 = [11100,1000,100,1000,1000,32000,0,1,10,0.5]
+t_span = (0.0, 20)
 
-prob = ODEProblem(smooth_model!, x0, t_span)
+prob = ODEProblem(smooth_model!, x0, t_span, dt=0.01, maxiters=1, adaptive=false)
 sol = solve(prob)
 
 Hq = plot(sol, vars=(0,1), xlabel="time", ylabel="Hq")

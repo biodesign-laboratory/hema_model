@@ -2,10 +2,6 @@
 using ReachabilityAnalysis, ModelingToolkit, Plots, OrdinaryDiffEq, DifferentialEquations, DiffEqCallbacks
 include("Hematopoiesis_Model")
 
-function linearlike(x,c,e)
-    c + (x - c) * (x^2 / (x^2 + e))
-end
-
 #Initial Conditions
 Hq = [11100.0, 11100.1]
 Hm = [1000.0, 1000.1]

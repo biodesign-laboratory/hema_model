@@ -1,4 +1,3 @@
-#Hematopoiesis Model
 #Smooth model, pure ODE, no reachability.
 
 using Plots, DifferentialEquations
@@ -47,9 +46,11 @@ A_0 = 1160
 # exponent
 kk = 1
 
+
 function linearlike(x,c,e)
     c + (x - c) * (x^2 / (x^2 + e))
 end
+
 
 function biomodel(dx, x, p, t)
     Hq=x[1];Hm=x[2];N=x[3];P=x[4];A=x[5];SCSF=x[6];K=x[7];Q=x[8];S=x[9];U=x[10]
@@ -69,8 +70,8 @@ function biomodel(dx, x, p, t)
     dHm = nu_Q - DI*beta - d_H*Hm - nu_M
     dN = g_n * N * (1 - N/N_inf) - (k_nq * Q + k_ns * S) * (N/(N_half + N))
 
-    dP = (S_PH * Hm + S_PQ * Q) * (0.5 * I / (2+ I) + 0.5) + S_PS * S - d_P * P
-    dA = (S_AH * Hm + S_AU * U) * (0.5 * I / (2+ I) + 0.5) + S_AS * S - d_A * A
+    dP = (S_PH * Hm + S_PQ * Q) * (0.5 * I / (2 + I) + 0.5) + S_PS * S - d_P * P
+    dA = (S_AH * Hm + S_AU * U) * (0.5 * I / (2 + I) + 0.5) + S_AS * S - d_A * A
     dSCSF = s_scsf * (K_crit /(K_crit + K)) - d_SCSF * SCSF
 
     dK = S_KD * (k_sn * N * (S/(k_sn * N + S))) - R_KU * U * (K/(K_crit + K))
@@ -81,3 +82,9 @@ function biomodel(dx, x, p, t)
     dx[1]=dHq;dx[2]=dHm;dx[3]=dN;dx[4]=dP;dx[5]=dA;dx[6]=dSCSF;dx[7]=dK;dx[8]=dQ;dx[9]=dS;dx[10]=dU
     return dx
 end
+
+dx_test = Any[0,0,0,0,0,0,0,0,0,0]
+x_test = Any[11100,1000,100,1000,1000,32000,0,1,10,0.5]
+
+# compare output to Bryan's RHS
+println(biomodel(dx_test,x_test,0,0))
