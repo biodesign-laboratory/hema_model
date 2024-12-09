@@ -6,6 +6,9 @@ import M2_beta
 import pandas as pd
 from pathlib import Path
 
+
+import sys
+
 run_number = 11      # used in file names
 
 runs = 10
@@ -41,12 +44,14 @@ parameters = {
     'theta_K' : 5000,
     'tau_Q' : 0.5,
     'tau_U' : 0.5,
+    
     'd_SCSF' : 0.3,
     'd_S' : 0.8,
     'd_Q' : 0.9,
     'd_U' : 0.8,
     'd_P' : 0.95,
     'd_A' : 0.95,
+    
     'g_N' : 0.10,
     'N_oo' : 2 * 10**7,
     'N_half' : 500,
@@ -58,6 +63,7 @@ parameters = {
     'S_AS' : 1,
     'S_SCSF' : 10000,
     'S_KD' : 1,
+    
     'k_sn' : 3,
     'k_nq' : 10,
     'k_ns' : 0.5,
@@ -86,6 +92,21 @@ outputs = np.zeros((runs, num_outputs, len(timesteps)))
 
 ext_stim_m = ['ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD']
 
+
+#return np.array([dHQ_dt, dHM_dt, dN_dt, dP_dt, dA_dt, dSCSF_dt, dK_dt, dQ_dt, dS_dt, dU_dt])
+
+print(M2_beta.beta_model(0, np.arange(1,10+1), parameters))
+
+# from Julia:
+# Any[1.438079615169999, -0.39720134058352013, -0.006759463339960192, -6.578045887762643, -6.303607573341224, -4.341936426592997, 9987.90999000999, 12.993461230071814, 21.143101259466036, -3.230769230769231]
+#Any[1.438079615169999, -0.39720134058352013, -0.006759463339960192, -6.578045887762643, -6.303607573341224, -4.341936426592997, 9987.90999000999, 12.993461230071814, 21.143101259466036, -3.230769230769231]
+
+# from Python:
+#[ 1.29255582e+00 -3.93233160e-01 -2.03976188e-01  2.96920527e+01  4.47151306e+01  9.99120490e+03  3.80048966e+00 -6.35208502e+00 -8.87534709e+00 -7.66542399e+00]
+sys.exit()
+
+
+################################## remove sys.exit() when done debugging
 start = time.time()
 for i in range(runs):
     data = PL.lin_sim(M2_beta.beta_model, parameters, init_state, t_final, delta_t, ext_stimuli[i], ext_stim_m, return_derivatives=bDerivatives, debug_mode=bDebug)
