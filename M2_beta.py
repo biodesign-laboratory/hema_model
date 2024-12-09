@@ -91,6 +91,9 @@ def beta_model(t, y, parameters, return_terms=False):
 
     # ----------- 3. Calculate functions in derivatives --------------------
     I_t = (P_t*((N_t**k)/(theta_N**k + N_t**k) + 0.25)*((0.5 * (K_t)/(theta_K + K_t) + 1))) / ((A_t*(theta_N**k/(theta_N**k + N_t**k) + 0.25)*(0.75 * (K_t)/(theta_K + K_t) + 1)) + (P_t*((N_t**k)/(theta_N**k + N_t**k) + 0.25)*((0.5 * (K_t)/(theta_K + K_t) + 1))))
+
+    print(P_t)
+    print(I_t)
     #I_t = P_t / (P_t + A_t)
 
     #D_I = (HM_t*(1/5)*P_t)/(HM_t + (1/5)*P_t) * I_t              # proportion of proliferating HSPCs differentiating (either symmetric or asymmetric)
