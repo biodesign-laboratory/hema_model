@@ -13,7 +13,7 @@ delta_t = 0.01
 t_final = 672       # 672 hours = 4 weeks
 num_outputs = 11
 bDerivatives = True
-bDebug = True
+#bDebug = True
 graph_derivatives = True
 
 timesteps = np.arange(stop=t_final, step=delta_t)
@@ -50,12 +50,12 @@ parameters = {
     'g_N' : 0.10,
     'N_oo' : 2 * 10**7,
     'N_half' : 500,
-    'S_PH' : 3,
-    'S_PS' : 1,
-    'S_PQ' : 10,
-    'S_AU' : 7,
-    'S_AH' : 3,
-    'S_AS' : 1,
+    'S_PH' : 0.2,
+    'S_PS' : 0.1,
+    'S_PQ' : 1,
+    'S_AU' : 1.2,
+    'S_AH' : 0.3,
+    'S_AS' : 0.2,
     'S_SCSF' : 10000,
     'S_KD' : 1,
     'k_sn' : 3,
@@ -74,14 +74,14 @@ ext_stimuli = np.zeros((runs, num_outputs, len(timesteps)))
 
 for i in range(runs):       # add stimuli here
 
-    ext_stimuli[i, 2, int(100/delta_t)] = 20000 + 10000*i
+    ext_stimuli[i, 2, int(100/delta_t)] = 10000 + 1000*i
     # ext_stimuli[i, 2, int(300/delta_t)] = 5000        # optional; nosocomial infection
 
 if bDerivatives:
     derivatives = np.zeros((runs, 10, len(timesteps)))
 
-if bDebug:
-    debug_output = np.zeros((runs, 10, len(timesteps)))     # change 10 to however many terms you have returned by ODE_eq()
+'''if bDebug:
+    debug_output = np.zeros((runs, 10, len(timesteps)))     # change 10 to however many terms you have returned by ODE_eq()'''
 
 outputs = np.zeros((runs, num_outputs, len(timesteps)))
 
@@ -89,16 +89,16 @@ ext_stim_m = ['ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'AD
 
 start = time.time()
 for i in range(runs):
-    data = PL.lin_sim(PL.model_3_derivatives, parameters, init_state, t_final, delta_t, ext_stimuli[i], ext_stim_m, return_derivatives=bDerivatives)
+    data = PL.lin_sim(PL.model_2_derivatives, parameters, init_state, t_final, delta_t, ext_stimuli[i], ext_stim_m, return_derivatives=bDerivatives)
     outputs[i, :, :] = data[0]
     print(f"Run {i} output successfully computed")
 
     if bDerivatives:
         derivatives[i] = data[1]
         print(f"Run {i} derivatives successfully loaded")
-    if bDebug:
+    '''if bDebug:
         debug_output = data[2]
-        print(f"Run {i} debug data successfully loaded")
+        print(f"Run {i} debug data successfully loaded")'''
 
 end = time.time()
 print(f'Execution successful. Time elapsed: {end-start}s')
@@ -214,7 +214,7 @@ if bDerivatives:
     end = time.time()
     print(f'Derivative data successfully saved. Time elapsed: {end-start}')
 
-if bDebug:
+'''if bDebug:
 
     print("Saving debug data to .csv files now.")
     start = time.time()
@@ -225,7 +225,7 @@ if bDebug:
         df.to_csv(path / f'SIM_{run_number}_{i}_debug.csv')
     
     end = time.time()
-    print(f'Debug data successfully saved. Time elapsed: {end-start}')
+    print(f'Debug data successfully saved. Time elapsed: {end-start}')'''
 
 # ----------- graph derivatives -------------------
 if graph_derivatives:
@@ -255,6 +255,3 @@ if graph_derivatives:
     path = Path.cwd() / 'Runs' / f'Exp_{run_number}' / f'derivatives_{run_number}.png'
     plt.savefig(path, dpi=300, bbox_inches='tight')
     plt.show()
-
-    # What needs to be done:
-    #   - Split figures into separate graphs so png's are easier to read
