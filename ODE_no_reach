@@ -84,7 +84,13 @@ function biomodel(dx, x, p, t)
 end
 
 dx_test = Any[0,0,0,0,0,0,0,0,0,0]
-x_test = Any[11100,1000,100,1000,1000,32000,0,1,10,0.5]
+x0 = [11100.0,1000.0,100.0,1000.0,1000.0,32000.0,0.0,1.0,10.0,0.5]
 
 # compare output to Bryan's RHS
-println(biomodel(dx_test,x_test,0,0))
+println(biomodel(dx_test,x0,0,0))
+
+x0 = [11100.0,1000.0,100.0,1000.0,1000.0,32000.0,0.0,1.0,10.0,0.5]
+t_span = (0.0, 672)
+
+prob = ODEProblem(biomodel, x0, t_span)
+sol = solve(prob)

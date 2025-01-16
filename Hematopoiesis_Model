@@ -1,5 +1,4 @@
 #Hematopoiesis Model
-#Smooth model, pure ODE, no reachability.
 
 using Plots, DifferentialEquations
 
@@ -39,11 +38,6 @@ K_crit = 10000
 k = 1
 A_crit = 3
 
-H_0 = 1000
-N_0 = 0.0
-P_0 = 600
-A_0 = 1160
-
 # exponent
 kk = 1
 
@@ -62,20 +56,20 @@ function biomodel(dx, x, p, t)
     beta = I / ((I_crit + 10) + I)
     
     DI = (Hm * (1/5) * P)/(Hm * (1/5) + P) * I
-    DQB = ((1/3) * tauQ * I)/(I_crit + I)
-    DUB = ((1/3) * tauU) * ((1 - I) / (A_crit + (1 - I)))
+    DQB = (1/3) * tauQ * (I)/(I_crit + I)
+    DUB = (1/3) * tauU * (1 - I) / (A_crit + (1 - I))
 
     dHq = (nu_M - nu_Q) + (2 * Hq * (1 - (K_h * Hq)/linearlike(SCSF, 0.1, 0.00001)))
     dHm = nu_Q - DI*beta - d_H*Hm - nu_M
-    dN = g_n * N * (1 - N/N_inf) - (k_nq * Q + k_ns * S) * (N/(N_half + N))
+    dN = g_n * N * (1 - (N/N_inf)) - (k_nq * Q + k_ns * S) * (N/(N_half + N))
 
-    dP = (S_PH * Hm + S_PQ * Q) * (0.5 * I / (2+ I) + 0.5) + S_PS * S - d_P * P
-    dA = (S_AH * Hm + S_AU * U) * (0.5 * I / (2+ I) + 0.5) + S_AS * S - d_A * A
+    dP = (S_PH * Hm + S_PQ * Q) * (0.5 * I / (2 + I) + 0.5) + S_PS * S - d_P * P
+    dA = (S_AH * Hm + S_AU * U) * (0.5 * I / (2 + I) + 0.5) + S_AS * S - d_A * A
     dSCSF = s_scsf * (K_crit /(K_crit + K)) - d_SCSF * SCSF
 
     dK = S_KD * (k_sn * N * (S/(k_sn * N + S))) - R_KU * U * (K/(K_crit + K))
     dQ = DQB * S - d_Q * (1 - 0.5 * I / (2 + I)) * Q
-    dS = (DI * (1 - beta) + 2 * DI * beta) - DQB * S - DUB * S - d_S * S - (k_sn * N * ((1 - (DQB + DUB + d_s)) * S / (k_sn * N + (1 - (DQB + DUB + d_s)) * S)))
+    dS = (DI * (1 - beta) + 2 * DI * beta) - DQB * S - DUB * S - d_S * S - (k_sn * N * ((1 - (DQB + DUB + d_S)) * S / (k_sn * N + (1 - (DQB + DUB + d_S)) * S)))
     dU = DUB * S - d_U * U
 
     dx[1]=dHq;dx[2]=dHm;dx[3]=dN;dx[4]=dP;dx[5]=dA;dx[6]=dSCSF;dx[7]=dK;dx[8]=dQ;dx[9]=dS;dx[10]=dU

@@ -2,20 +2,144 @@
 using ReachabilityAnalysis, ModelingToolkit, Plots, OrdinaryDiffEq, DifferentialEquations, DiffEqCallbacks
 include("Hematopoiesis_Model")
 
-x0 = [11100,1000,100,1000,1000,32000,0,1,10,0.5]
-t_span = (0.0, 20)
+# Initialize individual plots for each variable
+Hq = plot(xlabel="Time", ylabel="Hq", legend=false)
+Hm = plot(xlabel="Time", ylabel="Hm", legend=false)
+N = plot(xlabel="Time", ylabel="PAMPS", legend=false)
+P = plot(xlabel="Time", ylabel="Pro-Inflammatory", legend=false)
+A = plot(xlabel="Time", ylabel="Anti-Inflammatory", legend=false)
+SCSF = plot(xlabel="Time", ylabel="SCSF", legend=false)
+K = plot(xlabel="Time", ylabel="DAMPS", legend=false)
+S = plot(xlabel="Time", ylabel="Stable", legend=false)
+Q = plot(xlabel="Time", ylabel="Active", legend=false)
+U = plot(xlabel="Time", ylabel="Inactive", legend=false)
 
-prob = ODEProblem(smooth_model!, x0, t_span, dt=0.01, maxiters=1, adaptive=false)
-sol = solve(prob)
 
-Hq = plot(sol, vars=(0,1), xlabel="time", ylabel="Hq")
-Hm = plot(sol, vars=(0,2), xlabel="time", ylabel="Hm")
-N = plot(sol, vars=(0,3), xlabel="time", ylabel="PAMPS")
-S = plot(sol, vars=(0,4), xlabel="time", ylabel="Stable")
-Q = plot(sol, vars=(0,5), xlabel="time", ylabel="Active")
-U = plot(sol, vars=(0,6), xlabel="time", ylabel="Inactive")
-SCSF = plot(sol, vars=(0,7), xlabel="time", ylabel="SCSF")
-P = plot(sol, vars=(0,8), xlabel="time", ylabel="Pro-Inflammatory")
-A = plot(sol, vars=(0,9), xlabel="time", ylabel="Anti-Inflammatory")
-K = plot(sol, vars=(0,10), xlabel="time", ylabel="DAMPS")
-plot(Hq, Hm, N, S, Q, U, SCSF, P, A, K, layout = (4, 3), w = 1, legend = false)
+#Initialize Variables
+Hq0 = 11100.0  # Quiescent HSPCs
+Hm0 = 1000.0  # Proliferating HSPCs
+N0 = 15000  # PAMPs (Pathogens)
+P0 = 1000.0  # Pro-inflammatory Cytokines
+A0 = 1000.0  # Anti-inflammatory Cytokines
+SCSF0 = 32000.0  # Stem Cell Supporting Factors
+K0 = 0.0  # DAMPs (Tissue Damage)
+S0 = 10.0  # Activated leukocytes
+Q0 = 1.0  # Stable leukocytes
+U0 = 0.5  # Suppressor leukocytes
+
+x0 = [Hq0, Hm0, N0, P0, A0, SCSF0, K0, S0, Q0, U0]  # Initial conditions array
+t_span = (0.0, 600)  # Time span for simulations
+runs = 300  # How many runs for multiple_runs
+step_size = 500  # Step size for multiple_runs 
+x_init = 0 # What initial value to start stepping form for multiple_runs
+
+lower_bound = 0
+upper_bound = 100000
+iters = 200
+convergence = 20000
+
+#result = bifurcation_search(lower_bound, upper_bound, iters, 10, x0, convergence)
+#println(result)
+
+multiple_runs(runs, step_size, x_init, 3, x0)
+
+
+
+
+#functions
+function multiple_runs(runs, step_size, x_init, variable, x_base)
+    #=
+    input:
+    runs = the amount of individual runs of the simulation the script will do
+    step_size = the step size between the initial condition in each run
+    x_init = the initial value the initial condtion takes on the first run
+    variable = A value of 1 through 10 specifying the variable desired to vary
+    x_base = the default set of initial conditions (for the variables that won't be varied)
+
+    output:
+    plot with all of the runs overlayed
+    =#
+    start_time = time()
+    x0 = copy(x_base)
+    for i in 1:runs
+        x0[variable] = (i * step_size) + x_init
+        prob = ODEProblem(biomodel, x0, t_span)
+        sol = solve(prob)
+
+        plot!(Hq, sol, vars=(0,1), xlabel="time", ylabel="Hq")
+        plot!(Hm, sol, vars=(0,2), xlabel="time", ylabel="Hm")
+        plot!(N, sol, vars=(0,3), xlabel="time", ylabel="PAMPS")
+        plot!(P, sol, vars=(0,4), xlabel="time", ylabel="Pro-Inflammatory")
+        plot!(A, sol, vars=(0,5), xlabel="time", ylabel="Anti-Inflammatory")
+        plot!(SCSF, sol, vars=(0,6), xlabel="time", ylabel="SCSF")
+        plot!(K, sol, vars=(0,7), xlabel="time", ylabel="DAMPS")
+        plot!(S, sol, vars=(0,8), xlabel="time", ylabel="Stable")
+        plot!(Q, sol, vars=(0,9), xlabel="time", ylabel="Active")
+        plot!(U, sol, vars=(0,10), xlabel="time", ylabel="Inactive")
+        println("completed run ", i)
+    end
+    end_time = time()
+    print(end_time - start_time, " seconds")
+
+    plot(Hq, Hm, N, P, A, SCSF, K, S, Q, U, layout = (4, 3), w = 1, legend = false)
+end
+
+function bifurcation_search(y, x, max_iter, variable, x_base, convergence)
+    #=
+    input:
+    x = the upper bound of the variable starting guess
+    y = the lower bound of the variable starting guess
+    max_iter = the amount of iterations the method will run
+    variable = index of what varibale you want to use
+    x_base = initial variable values
+    upper_convergence = lowerbound guess for upper convergence of chosen variable
+    lower_convergence = upperbound guess for lower convergence of chosen variable
+
+    output:
+    result = the value where variable results in a bifurcation after max_iter cycles
+    =#
+    z = (x + y) / 2
+    x0 = copy(x_base)
+
+    prob = ODEProblem(biomodel, x0, t_span)
+    sol_x = solve(prob)
+
+    x0[variable] = y
+    prob = ODEProblem(biomodel, x0, t_span)
+    sol_y = solve(prob)
+
+    if sol_x(600)[3] > sol_y(600)[3]
+        default_case = true
+    else
+        default_case = false
+    end
+
+    println("initial f(x): ", sol_x(600)[3])
+    println("initial f(y): ", sol_y(600)[3])
+    for i in 1:max_iter
+        t_span = 672
+        x0[variable] = z
+
+        prob = ODEProblem(biomodel, x0, t_span)
+        sol = solve(prob)
+        if default_case
+            if sol(600)[3] > convergence
+                x = z
+                z = (x + y) / 2
+            elseif sol(600)[3] < convergence
+                y = z
+                z = (x + y) / 2
+            end
+        else
+            if sol(600)[3] < convergence
+                x = z
+                z = (x + y) / 2
+            elseif sol(600)[3] > convergence
+                y = z
+                z = (x + y) / 2
+            end
+        end
+    end
+    return z
+end
+
