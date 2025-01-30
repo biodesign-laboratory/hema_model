@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
 import pandas as pd
 from PIL import Image
@@ -1221,4 +1222,195 @@ def lin_sim(ODE_eq, parameters, init_y, t_final, delta_t, ext_stimuli, ext_stim_
     data = (model_output, derivative_output)
 
     return data
-            
+
+
+def model_x_derivatives(t, y):
+    '''
+    ARGS:
+    - parameters : dictionary of relevant parameter values
+    - y : model variables
+    - t : to make compatible with solve_ivp
+    OUTPUTS:
+    - derivatives : array of derivative values
+    '''
+    # ----------- 1. Load parameter values --------------------
+
+    parameters = {
+
+    'k_H' : 3,
+    'dH' : 0.05,
+    'theta_N' : 2000,
+    'theta_K' : 5000,
+    'tau_Q' : 1,
+    'tau_U' : 1,
+    'd_SCSF' : 0.3,
+    'd_S' : 0.7,
+    'd_Q' : 0.9,
+    'd_U' : 0.8,
+    'd_P' : 0.95,
+    'd_A' : 0.95,
+    'g_N' : 0.10,
+    'N_oo' : 2 * 10**7,
+    'N_half' : 500,
+    'S_PH' : 3,
+    'S_PS' : 1,
+    'S_PQ' : 5,
+    'S_AU' : 7,
+    'S_AH' : 3,
+    'S_AS' : 1,
+    'S_SCSF' : 10000,
+    'S_KD' : 1,
+    'k_sn' : 3,
+    'k_nq' : 10,
+    'k_ns' : 0.5,
+    'R_KU' : 15,
+    'I_crit' : 0.8,
+    'K_crit' : 10000,
+    'k' : 1,
+    'A_crit' : 3,
+    'psi' : 1/10
+
+    }
+
+    # HSPC parameters
+    k_H = parameters['k_H']                 # number of SCSFs consumed per fully renewing proliferating HSPC
+    dH = parameters['dH']                   # decay of proliferating HSPCs owing to their sped up cycling
+
+    # sensitivity parameters
+
+    theta_N = parameters['theta_N']
+    theta_K = parameters['theta_K']
+    tau_Q = parameters['tau_Q']
+    tau_U = parameters['tau_U']
+
+
+    # decay rate parameters
+
+    d_SCSF = parameters['d_SCSF']          # base decay rate of SCSFs
+    d_S = parameters['d_S']                # base decay rate of S cells
+    d_Q = parameters['d_Q']                # base decay rate of Q cells
+    d_U = parameters['d_U']                # base decay rate of U cells
+    d_P = parameters['d_P']                # base decay rate of pro-inflammatory cytokines
+    d_A = parameters['d_A']                # base decay rate of anti-inflammatory cytokines
+
+    # S_HP = parameters['S_HP']
+
+    # pathogen parameters
+    g_N = parameters['g_N']
+    N_oo = parameters['N_oo']
+    N_half = parameters['N_half']
+
+    # Secretion rate parameters
+
+    S_PH = parameters['S_PH']                  # base rate of P by HM
+    S_PS = parameters['S_PS']                  # base rate of P by S
+    S_PQ = parameters['S_PQ']                  # base rate of P by Q
+
+    S_AU = parameters['S_AU']
+    S_AH = parameters['S_AH']
+    S_AS = parameters['S_AS']
+
+    S_SCSF = parameters['S_SCSF']              # secretion of stem cell supporting factors (SCSF) by the BM Niche
+
+    S_KD = parameters['S_KD']                  # amount of DAMPs secreted per cell death
+
+    # kill rate parameters
+    k_sn = parameters['k_sn']                  # N kills S
+    k_nq = parameters['k_nq']                  # Q kills N (generally high)
+    k_ns = parameters['k_ns']                  # S kills N (generally low)
+
+    # misc parameters
+    R_KU = parameters['R_KU']                  # rate at which immuno-suppressive cells heal tissue damage
+    I_crit = parameters['I_crit']
+    A_crit = parameters['A_crit']
+    K_crit = parameters['K_crit']              # concentration of DAMPs (K(t)) needed to dampen SCSF production by 0.5x
+    k = parameters['k']                        # hill-type coefficient
+
+    psi = parameters['psi']                    # new experimental term
+
+
+    # ----------- 2. Load variable values --------------------
+
+    HQ_t = y[0]             # Quiescent HSPCs
+    HM_t = y[1]             # Mobilized HSPCs
+    N_t = y[2]              # Pathogen (PAMPs)
+    P_t = y[3]              # Pro-inflammatory cytokines
+    A_t = y[4]              # Anti-inflammatory cytokines
+    SCSF_t = y[5]           # Stem Cell Supporting Factors (secreted by BM Niche tissue)
+    K_t = y[6]              # Tissue Damage (DAMPs)
+    Q_t = y[7]              # Active Leukocytes (e.g. M1 Macrophages, NK Cells, Neutrophils, etc.)
+    S_t = y[8]              # Stable Leukocytes (i.e. steady-state leukocytes)
+    U_t = y[9]              # Immuno-suppressive Leukocytes (e.g. M2 Macrophages, T-cells, etc.)
+
+    # ----------- 3a. Calculate functions in derivatives --------------------
+    amp_P_by_N = (N_t**k)/(theta_N**k + N_t**k) + 0.25      # amplifies pro-inflammatory signals by pathogen concentration
+    amp_P_by_K = 0.5 * (K_t)/(theta_K + K_t) + 1            # amplifies pro-inflammatory signals by tissue damage
+    damp_A_by_N = theta_N**k/(theta_N**k + N_t**k) + 0.25   # dampens the anti-inflammatory signals by pathogen concentration
+    amp_A_by_K = 0.75 * (K_t)/(theta_K + K_t) + 1           # amplifies the anti-inflammatory signals by tissue damage
+
+    I_t = (P_t * amp_P_by_N * amp_P_by_K) / ((A_t * damp_A_by_N * amp_A_by_K) + (P_t * amp_P_by_N * amp_P_by_K))
+
+    #D_I = (HM_t*(1/5)*P_t)/(HM_t + (1/5)*P_t) * I_t              # proportion of proliferating HSPCs differentiating (either symmetric or asymmetric)
+    #D_I = (HM_t*(1/5)*P_t)/((1/5)*HM_t + P_t) * I_t
+    D_I = (HM_t*(1/5)*P_t)/((1/5)*HM_t + P_t)
+
+    beta = I_t/(I_crit + I_t)                              # proportion of differentiating proliferating HSPCs asymmetrically differentiating (1 parent HSPC -> 2 daughter WBCs)
+
+    #eta_Q = (1/5) * ((HQ_t * (P_t)) / ((1/5)*HQ_t + P_t)) * (I_t/(I_crit + I_t))
+    eta_Q = (I_t) * ((HQ_t * (P_t)) / ((I_t)*HQ_t + P_t))
+
+    #eta_M = (1/5) * ((HM_t * A_t) / (1/5*HM_t + A_t)) * ((1/I_t)/(A_crit + (1/I_t)))
+    eta_M = (1-I_t) * ((HM_t * A_t) / ((1-I_t)*HM_t + A_t))
+
+    #print(f'eta_M: {eta_M}')
+    # IMPORTANT: These next two functions control how the stable leukocytes compartment (S) upregulate the immuno-suppressive and active compartments (U, Q respectively); relates to our research question
+
+    '''D_Q = (1/3)*tau_Q * (I_t)/(I_crit + I_t)
+    D_U = (1/3)*tau_U * (1-I_t) / (A_crit + (1 - I_t))'''
+
+    # ----------- 3b. debug ------------------
+    # new terms to replace D_Q, D_U, and N + S -> __ in dS/dt
+    downregulate_S = (tau_Q*P_t + tau_U*A_t + k_sn*N_t)*psi*S_t / (tau_Q*P_t + tau_U*A_t + k_sn*N_t + psi*S_t)
+    I_S = tau_Q*P_t*amp_P_by_N*amp_P_by_K + tau_U*A_t*amp_A_by_K*damp_A_by_N + k_sn*N_t
+
+
+    # ----------- 4. Calculate derivatives --------------------
+    # do not delete commented out equations, this is useful for keeping a record of changes in case something breaks
+
+    dHM_dt = eta_Q - D_I*beta - dH*HM_t - eta_M
+    #dHM_dt = eta_Q - D_I*beta - dH*HM_t - eta_M - (0.001*N_t*((1 - (1/5 + dH + 1/5))*HM_t/(0.001*N_t+(1 - (1/5 + dH + 1/5))*HM_t))) left off here; producing "invalid value encountered in scalar divide"
+
+    dHQ_dt = (eta_M - eta_Q) + (2*HQ_t*(1 - (k_H*HQ_t)/linear_like(SCSF_t, 0.1, 0.00001)))
+    #dHQ_dt = eta_M - eta_Q + (2*HQ_t*(1 - (k_H*HQ_t)/linear_like(SCSF_t, 0.1, 0.00001))) - (0.000001*N_t*((4/5)*HM_t/(0.000001*N_t+(4/5)*HM_t))) left off here; producing "invalid value encountered in scalar divide"
+
+    #dS_dt = (D_I*(1 - beta) + 2*D_I*beta) - D_Q*S_t - D_U*S_t - d_S*S_t - (k_sn*N_t*(S_t/(k_sn*N_t+S_t)))
+    #dS_dt = (D_I*(1 - beta) + 2*D_I*beta) - D_Q*S_t - D_U*S_t - d_S*S_t
+    #dS_dt = (D_I*(1 - beta) + 2*D_I*beta) - D_Q*S_t - D_U*S_t - d_S*S_t - (k_sn*N_t*((1 - (D_Q + D_U + d_S))*S_t/(k_sn*N_t+(1 - (D_Q + D_U + d_S))*S_t)))   # best so far
+    #dS_dt = (D_I*(1 - beta) + 2*D_I*beta) - D_Q*S_t - D_U*S_t - d_S*S_t + (k_sn*N_t*((1 - D_Q + D_U + d_S)*S_t/(k_sn*N_t+(1 - D_Q + D_U + d_S)*S_t)))
+
+    dS_dt = (D_I*(1 - beta) + 2*D_I*beta) - downregulate_S      # new term
+
+    # dQ_dt = D_Q*S_t - d_Q*(1 - 0.5*I_t/(2 + I_t))*Q_t
+    dQ_dt = downregulate_S * (tau_Q*P_t*amp_P_by_N*amp_P_by_K) / (I_S) - d_Q*(1 - 0.5*I_t/(2 + I_t))*Q_t      # new term
+
+    # dU_dt = D_U*S_t - d_U*U_t
+    dU_dt = downregulate_S * (tau_U*A_t*amp_A_by_K*damp_A_by_N) / (I_S) - d_U*U_t         # new term
+
+    dSCSF_dt = S_SCSF*(K_crit / (K_crit + K_t)) - d_SCSF*SCSF_t
+
+    dP_dt = (S_PH*HM_t + S_PQ*Q_t)*(0.5*I_t/(2 + I_t) + 0.5) + S_PS*S_t - d_P*P_t
+
+    dA_dt = (S_AH*HM_t + S_AU*U_t)*(0.5*I_t/(2 + I_t) + 0.5)  + S_AS*S_t - d_A*A_t
+
+    dK_dt = S_KD*(k_sn*N_t*(S_t/(k_sn*N_t+S_t))) - R_KU*U_t*(K_t/(K_crit + K_t))
+
+    dN_dt = g_N*N_t*(1-(N_t/N_oo)) - (k_nq*Q_t + k_ns*S_t)*(N_t/(N_half + N_t))
+
+    # ---------- 5. Return derivative -------------------
+
+    return np.array([dHQ_dt, dHM_dt, dN_dt, dP_dt, dA_dt, dSCSF_dt, dK_dt, dQ_dt, dS_dt, dU_dt])
+          
+def sim_with_solver(ODE_eq, init_y, t_final):
+    sol = solve_ivp(ODE_eq, t_final, init_y)
+    return sol
+    
