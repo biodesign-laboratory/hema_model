@@ -5,15 +5,17 @@ import time
 # import M2_beta
 import pandas as pd
 from pathlib import Path
+from matplotlib.collections import LineCollection
+
 
 run_number = 'debug'      # used in file names
 
-runs = 1
+runs = 3
 delta_t = 0.01
 t_final = 672       # 672 hours = 4 weeks
 num_outputs = 11
-bDerivatives = True
-#bDebug = True
+bDerivatives = False
+bDebug = False
 graph_derivatives = False
 
 timesteps = np.arange(stop=t_final, step=delta_t)
@@ -91,16 +93,16 @@ start = time.time()
 for i in range(runs):
     init_state = [
 
-    20000,  # Quiescent HSPCs
-    0,      # Proliferating HSPCs
-    60109.37690734863,      # PAMPs (Pathogens)
-    10000,      # Pro-inflammatory Cytokines
-    10000,      # Anti-inflammatory Cytokines
-    10000,  # Stem Cell Supporting Factors
-    0,      # DAMPs (Tissue Damage)
-    0,      # Activated leukocytes
-    1,   # Stable leukocytes
-    0       # Suppressor leukocytes
+    50000 * np.random.rand(),  # Quiescent HSPCs
+    3000 * np.random.rand(),      # Proliferating HSPCs
+    100000 * np.random.rand(),      # PAMPs (Pathogens)
+    20000 * np.random.rand(),      # Pro-inflammatory Cytokines
+    20000 * np.random.rand(),      # Anti-inflammatory Cytokines
+    64000 * np.random.rand(),  # Stem Cell Supporting Factors
+    100000 * np.random.rand(),      # DAMPs (Tissue Damage)
+    10000 * np.random.rand(),      # Activated leukocytes
+    100000 * np.random.rand(),   # Stable leukocytes
+    10000 * np.random.rand()       # Suppressor leukocytes
 
 ]
     data = PL.lin_sim(PL.model_2_derivatives, parameters, init_state, t_final, delta_t, ext_stimuli[i], ext_stim_m, return_derivatives=bDerivatives)
@@ -118,7 +120,7 @@ end = time.time()
 print(f'Execution successful. Time elapsed: {end-start}s')
 
 # ---- plotting the simulations -------
-path = Path.cwd() / 'Runs'
+'''path = Path.cwd() / 'Runs'
 
 if not Path.exists(path):
     Path.mkdir(path)
@@ -128,9 +130,9 @@ path = Path.cwd() / 'Runs' / f'Exp_{run_number}'
 if not Path.exists(path):
     Path.mkdir(path)
 
-'''path = Path.cwd() / 'Runs' / f'Exp_{run_number}' / f'sim_{run_number}'
+path = Path.cwd() / 'Runs' / f'Exp_{run_number}' / f'sim_{run_number}'
 if not Path.exists(path):
-    Path.mkdir(path)'''
+    Path.mkdir(path)
 
 
 fig1, axs1 = plt.subplots(3, 1)
@@ -150,10 +152,32 @@ titles = [
     '$S(t)$',
     '$U(t)$', 
     '$I(t)$'
-]
+]'''
+
+
+fig, ax = plt.subplots()
+segments_total = [0] * runs
+
+
+for i in range(runs):
+    segments = outputs[i,0]
+    segments_total[i] = np.column_stack((timesteps, segments))
+
+lc = LineCollection(segments_total, linewidths=0.5, alpha=0.3, color='blue')
+ax.add_collection(lc)
+print(type(lc))
+ax.set_xlim(0, t_final)
+#ax.set_ylim(0, 100000)
+plt.xlabel("X")
+plt.ylabel("Y")
+plt.title("Title")
+plt.autoscale(enable=True, axis='y', tight=None)
+plt.show()
+
+
 
 # axs[i%4, i//4]
-
+'''
 for i in range(num_outputs):
 
     for j in range(runs):   # sim runs are split into 4 separate figures to make it more readable
@@ -211,7 +235,7 @@ fig2.savefig(path / f'sim_{run_number}_P_A_SCSF.png', dpi=300)
 fig3.savefig(path / f'sim_{run_number}_K_Q_S.png', dpi=300)
 fig4.savefig(path / f'sim_{run_number}_U_I.png', dpi=300)
 
-plt.show()
+plt.show()'''
 
 # ------------- saving derivatives and/or debug terms to .csv files -------------
 
