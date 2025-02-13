@@ -6,21 +6,23 @@ from M2_debug import beta_model_3
 import pandas as pd
 from pathlib import Path
 
-run_number = 'debug'                # used in file names, doesn't have to be a number
+run_number = 'Sustained_cytokine_storm'                # used in file names, doesn't have to be a number
 model = 3                           # 2 - model 2 (previous, no MDSCs), 3 - model 3 (MDSCs)
 
-runs = 10
+runs = 15
 delta_t = 0.01
-t_final = 672                       # 672 hours = 4 weeks (timescale is arbitrary but I still use it to gauge model behavior)
+t_final = 400                       # 672 hours = 4 weeks (timescale is arbitrary but I still use it to gauge model behavior)
 # num_outputs = 11
-bDerivatives = True
+#bDerivatives = True                # need to update lin_sim code, unavailable for now
 graph_derivatives = True
-delayed_infection = False            # use this to make pathogen input spread out over time period [t_infection_start, t_infection_end)
+delayed_infection = True            # use this to make pathogen input spread out over time period [t_infection_start, t_infection_end)
 t_infection_start = 100             
-t_infection_end = 115               # only used if delayed_infection = True
-path_size_default = 100000
+t_infection_end = 125               # only used if delayed_infection = True
+path_size_default = 0
 nosocomial_size = 20000
-path_increment = 10000
+nosocomial_start = 300
+nosocomial_end = 325
+path_increment = 2500
 output_to_csv = True
 
 timesteps = np.arange(stop=t_final, step=delta_t)
@@ -30,33 +32,33 @@ print(len(timesteps))
 if model == 2:
     init_state = [
 
-        20000,  # Quiescent HSPCs
-        0,      # Proliferating HSPCs
+        10000,  # Quiescent HSPCs
+        5000,      # Proliferating HSPCs
         0,      # PAMPs (Pathogens)
         10000,      # Pro-inflammatory Cytokines
         10000,      # Anti-inflammatory Cytokines
         10000,  # Stem Cell Supporting Factors
         0,      # DAMPs (Tissue Damage)
         0,      # Activated leukocytes
-        1,   # Stable leukocytes
+        600,   # Stable leukocytes
         0       # Suppressor leukocytes
 
     ]
 elif model == 3:
     init_state = [
 
-        20000,  # Quiescent HSPCs
-        1,      # Proliferating HSPCs
-        1,      # PAMPs (Pathogens)
+        10000,  # Quiescent HSPCs
+        5000,      # Proliferating HSPCs
+        0,      # PAMPs (Pathogens)
         10000,      # Pro-inflammatory Cytokines
         10000,      # Anti-inflammatory Cytokines
         10000,  # Stem Cell Supporting Factors
         1,      # DAMPs (Tissue Damage)
-        1,      # Activated leukocytes
-        1,   # Stable leukocytes
-        1,       # Suppressor leukocytes
+        500,      # Activated leukocytes
+        500,   # Stable leukocytes
+        500,       # Suppressor leukocytes
         1,      # MDSC
-        10000,  # MF
+        5000,  # MF
 
     ]
 
@@ -66,33 +68,33 @@ if model == 2:
 
         'k_H' : 3,
         'dH' : 0.05,
-        'theta_N' : 2000,
-        'theta_K' : 5000,
+        'theta_N' : 100_000,       # 2000
+        'theta_K' : 50_000,       # 5000
         'tau_Q' : 1,
         'tau_U' : 1,
         'd_SCSF' : 0.3,
         'd_S' : 0.7,
-        'd_Q' : 0.9,
+        'd_Q' : 0.95,
         'd_U' : 0.5,
         'd_P' : 0.95,
         'd_A' : 0.95,
         'g_N' : 0.10,
         'N_oo' : 2 * 10**7,
         'N_half' : 2500,
-        'S_PH' : 5,
+        'S_PH' : 2,
         'S_PS' : 5,
-        'S_PQ' : 20,
+        'S_PQ' : 10,
         'S_AU' : 15,
-        'S_AH' : 5,
-        'S_AS' : 5,
-        'S_SCSF' : 20000,
+        'S_AH' : 0,
+        'S_AS' : 3,
+        'S_SCSF' : 10000,
         'S_KD' : 1,
         'k_sn' : 3,
         'k_nq' : 10,
         'k_ns' : 0.5,
         'R_KU' : 10,
         'I_crit' : 0.8,
-        'K_crit' : 10000,
+        'K_crit' : 30_000,
         'k' : 1,
         'A_crit' : 3,
         'psi' : 1/10
@@ -103,13 +105,13 @@ elif model == 3:
 
         'k_H' : 3,
         'dH' : 0.05,
-        'theta_N' : 2000,
-        'theta_K' : 5000,
+        'theta_N' : 100_000,
+        'theta_K' : 50_000,
         'tau_Q' : 1,
         'tau_U' : 1,
         'd_SCSF' : 0.3,
-        'd_S' : 0.7,
-        'd_Q' : 0.7,
+        'd_S' : 0.1,
+        'd_Q' : 0.95,
         'd_U' : 0.5,
         'd_P' : 0.95,
         'd_A' : 0.95,
@@ -117,20 +119,21 @@ elif model == 3:
         'N_oo' : 2 * 10**7,
         'N_half' : 2500,
         'S_PH' : 2,
-        'S_PS' : 4,
+        'S_PS' : 5,
         'S_PQ' : 10,
         'S_AU' : 15,
         'S_AH' : 0,
-        'S_AS' : 3,
-        'S_AM' : 7,
-        'S_SCSF' : 10000,
+        'S_AS' : 0,
+        'S_AM' : 8,
+        'S_SCSF' : 5000,
         'S_KD' : 1,
         'k_sn' : 3,
         'k_nq' : 10,
+        'k_nm' : 3,
         'k_ns' : 0.5,
         'R_KU' : 10,
         'I_crit' : 0.8,
-        'K_crit' : 100_000,
+        'K_crit' : 20_000,
         'k' : 1,
         'psi' : 1,
         'd_M' : 9/10,
@@ -138,9 +141,12 @@ elif model == 3:
         'S_KMD' : 1/5,
         'S_KQ' : 1/3,
         'C_QM' : 1,
-        'C_MDM' : 1/2,
+        'C_MDM' : 1,
         'C_UM' : 1/3,
-        'S_MF' : 10000
+        'S_MF' : 1000,
+        'omega' : 0.6,
+        'C_UP' : 2,
+        'alpha': 1/3
 
     }
 
@@ -159,12 +165,17 @@ for i in range(runs):       # add stimuli here
 
     if delayed_infection == False:                          # big, one-time pathogen input
         ext_stimuli[i, 2, int(t_infection_start/delta_t)] = path_size_default + path_increment*i
-        ext_stimuli[i, 2, int(300/delta_t)] = path_size_default        # optional; nosocomial infection
+        ext_stimuli[i, 2, int(300/delta_t)] = nosocomial_size        # optional; nosocomial infection
 
     else:                                                   # delayed input
         for j in np.arange(int(t_infection_start/delta_t), int(t_infection_end/delta_t)):
 
             ext_stimuli[i, 2, j] = (path_size_default + path_increment*i) / len(np.arange(int(t_infection_start/delta_t), int(t_infection_end/delta_t)))
+
+        for j in np.arange(int(nosocomial_start/delta_t), int(nosocomial_end/delta_t)):
+
+            ext_stimuli[i, 2, j] = (nosocomial_size) / len(np.arange(int(nosocomial_start/delta_t), int(nosocomial_end/delta_t)))
+
 
 if bDerivatives:
     derivatives = np.zeros((runs, num_outputs-1, len(timesteps)))
@@ -188,7 +199,7 @@ for i in range(runs):
             print(f"Run {i+1} derivatives successfully loaded")
     
     elif model == 3:
-        data = PL.lin_sim(beta_model_3, parameters, init_state, t_final, delta_t, ext_stimuli[i], ext_stim_m, return_derivatives=bDerivatives)
+        data = PL.lin_sim(beta_model_3, parameters, init_state, t_final, delta_t, ext_stimuli[i], ext_stim_m)
         outputs[i, :, :] = data[0]
         print(f"Run {i+1} output successfully computed")
 
@@ -412,7 +423,7 @@ plt.show()
 
 # ------------- 3. Saving derivatives to .csv files -------------
 
-if bDerivatives:
+'''if bDerivatives:
 
     print("Saving derivatives to .csv files now.")
     start = time.time()
@@ -423,4 +434,4 @@ if bDerivatives:
         df.to_csv(path / f'SIM_{run_number}_{i}_derivatives.csv')
     
     end = time.time()
-    print(f'Derivative data successfully saved. Time elapsed: {end-start}')
+    print(f'Derivative data successfully saved. Time elapsed: {end-start}')'''
