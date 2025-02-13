@@ -992,7 +992,7 @@ def linear_like(x, C, e):
     return C + (x-C)*(x**2/(x**2 + e))
 
 
-def model_3_derivatives(t, y, parameters):
+def model_2_derivatives(t, y, parameters):
     '''
     ARGS:
     - parameters : dictionary of relevant parameter values
@@ -1033,7 +1033,7 @@ def model_3_derivatives(t, y, parameters):
 
     # Secretion rate parameters
 
-    S_PH = parameters['S_PH']                  # base rate of P by PH
+    S_PH = parameters['S_PH']                  # base rate of P by HM
     S_PS = parameters['S_PS']                  # base rate of P by S
     S_PQ = parameters['S_PQ']                  # base rate of P by Q
 
@@ -1057,11 +1057,13 @@ def model_3_derivatives(t, y, parameters):
     K_crit = parameters['K_crit']              # concentration of DAMPs (K(t)) needed to dampen SCSF production by 0.5x
     k = parameters['k']                        # hill-type coefficient
 
+    psi = parameters['psi']                    # new experimental term
+
 
     # ----------- 2. Load variable values --------------------
 
-    QH_t = y[0]             # Quiescent HSPCs
-    PH_t = y[1]             # Proliferating HSPCs
+    HQ_t = y[0]             # Quiescent HSPCs
+    HM_t = y[1]             # Mobilized HSPCs
     N_t = y[2]              # Pathogen (PAMPs)
     P_t = y[3]              # Pro-inflammatory cytokines
     A_t = y[4]              # Anti-inflammatory cytokines
@@ -1071,53 +1073,76 @@ def model_3_derivatives(t, y, parameters):
     S_t = y[8]              # Stable Leukocytes (i.e. steady-state leukocytes)
     U_t = y[9]              # Immuno-suppressive Leukocytes (e.g. M2 Macrophages, T-cells, etc.)
 
-    # ----------- 3. Calculate functions in derivatives --------------------
-    I_t = (P_t*((N_t**k)/(theta_N**k + N_t**k) + 0.25)*((0.5 * (K_t)/(theta_K + K_t) + 1))) / (A_t*(theta_N**k/(theta_N**k + N_t**k) + 0.25)*(0.75 * (K_t)/(theta_K + K_t) + 1))
-    #print(f'I_t: {I_t}')
-    D_I = (PH_t*(1/5)*P_t)/(PH_t + (1/5)*P_t) * (I_t/(I_crit + I_t))              # proportion of proliferating HSPCs differentiating (either symmetric or asymmetric)
-    #print(f'D_I: {D_I}')
-    beta = I_t/((I_crit + 10) + I_t)                              # proportion of differentiating proliferating HSPCs asymmetrically differentiating (1 parent HSPC -> 2 daughter WBCs)
+    # ----------- 3a. Calculate functions in derivatives --------------------
+    amp_P_by_N = (N_t**k)/(theta_N**k + N_t**k) + 0.25      # amplifies pro-inflammatory signals by pathogen concentration
+    amp_P_by_K = 0.5 * (K_t)/(theta_K + K_t) + 1            # amplifies pro-inflammatory signals by tissue damage
+    damp_A_by_N = theta_N**k/(theta_N**k + N_t**k) + 0.25   # dampens the anti-inflammatory signals by pathogen concentration
+    amp_A_by_K = 0.75 * (K_t)/(theta_K + K_t) + 1           # amplifies the anti-inflammatory signals by tissue damage
 
-    neta_Q = (1/5) * ((QH_t * (P_t)) / (QH_t + (1/5)*P_t)) * (I_t/(I_crit + I_t))
-    #print(f'(1/5) * ((QH_t * (P_t)) / (QH_t + (1/5)*P_t)): {(1/5) * ((QH_t * (P_t)) / (QH_t + (1/5)*P_t))}')
-    #print(f'(I_t/(I_crit + I_t)): {(I_t/(I_crit + I_t))}')
-    #print(f'neta_Q: {neta_Q}')
-    neta_P = (1/5) * ((PH_t * A_t) / (1/5*PH_t + A_t)) * ((1/I_t)/(A_crit + (1/I_t)))
-    #print(f'neta_P: {neta_P}')
+    I_t = (P_t * amp_P_by_N * amp_P_by_K) / ((A_t * damp_A_by_N * amp_A_by_K) + (P_t * amp_P_by_N * amp_P_by_K))
+
+    #D_I = (HM_t*(1/5)*P_t)/(HM_t + (1/5)*P_t) * I_t              # proportion of proliferating HSPCs differentiating (either symmetric or asymmetric)
+    #D_I = (HM_t*(1/5)*P_t)/((1/5)*HM_t + P_t) * I_t
+    D_I = (HM_t*(1/5)*P_t)/((1/5)*HM_t + P_t)
+
+    beta = I_t/(I_crit + I_t)                              # proportion of differentiating proliferating HSPCs asymmetrically differentiating (1 parent HSPC -> 2 daughter WBCs)
+
+    #eta_Q = (1/5) * ((HQ_t * (P_t)) / ((1/5)*HQ_t + P_t)) * (I_t/(I_crit + I_t))
+    eta_Q = (I_t) * ((HQ_t * (P_t)) / ((I_t)*HQ_t + P_t))
+
+    #eta_M = (1/5) * ((HM_t * A_t) / (1/5*HM_t + A_t)) * ((1/I_t)/(A_crit + (1/I_t)))
+    eta_M = (1-I_t) * ((HM_t * A_t) / ((1-I_t)*HM_t + A_t))
+
+    #print(f'eta_M: {eta_M}')
     # IMPORTANT: These next two functions control how the stable leukocytes compartment (S) upregulate the immuno-suppressive and active compartments (U, Q respectively); relates to our research question
 
-    D_Q = (1/3)*tau_Q * (I_t)/(I_crit + I_t)
-    D_U = (1/3)*tau_U * ((1/I_t) / (A_crit + (1/I_t)))
+    '''D_Q = (1/3)*tau_Q * (I_t)/(I_crit + I_t)
+    D_U = (1/3)*tau_U * (1-I_t) / (A_crit + (1 - I_t))'''
+
+    # ----------- 3b. debug ------------------
+    # new terms to replace D_Q, D_U, and N + S -> __ in dS/dt
+    downregulate_S = (tau_Q*P_t + tau_U*A_t + k_sn*N_t)*psi*S_t / (tau_Q*P_t + tau_U*A_t + k_sn*N_t + psi*S_t)
+    I_S = tau_Q*P_t*amp_P_by_N*amp_P_by_K + tau_U*A_t*amp_A_by_K*damp_A_by_N + k_sn*N_t
 
 
     # ----------- 4. Calculate derivatives --------------------
+    # do not delete commented out equations, this is useful for keeping a record of changes in case something breaks
 
-    dPH_dt = neta_Q - D_I*beta*PH_t - dH*PH_t - neta_P
-    #print(f'dPH_dt: {dPH_dt}')
-    dQH_dt = (neta_P - neta_Q) + (2*QH_t*(1 - (k_H*QH_t)/(SCSF_t)))
-    #print(f'dQH_dt: {dQH_dt}')
-    dS_dt = (D_I*(1 - beta) + 2*D_I*beta)*PH_t - D_Q*S_t - D_U*S_t - d_S*S_t - (k_sn*N_t*(S_t/(k_sn*N_t+S_t)))
+    dHM_dt = eta_Q - D_I*beta - dH*HM_t - eta_M
+    #dHM_dt = eta_Q - D_I*beta - dH*HM_t - eta_M - (0.001*N_t*((1 - (1/5 + dH + 1/5))*HM_t/(0.001*N_t+(1 - (1/5 + dH + 1/5))*HM_t))) left off here; producing "invalid value encountered in scalar divide"
 
-    dQ_dt = D_Q*S_t - d_Q*(1 - 0.5*(I_t/(I_crit + I_t)))*Q_t
+    dHQ_dt = (eta_M - eta_Q) + (2*HQ_t*(1 - (k_H*HQ_t)/linear_like(SCSF_t, 0.1, 0.00001)))
+    #dHQ_dt = eta_M - eta_Q + (2*HQ_t*(1 - (k_H*HQ_t)/linear_like(SCSF_t, 0.1, 0.00001))) - (0.000001*N_t*((4/5)*HM_t/(0.000001*N_t+(4/5)*HM_t))) left off here; producing "invalid value encountered in scalar divide"
 
-    dU_dt = D_U*S_t - d_U*U_t
+    #dS_dt = (D_I*(1 - beta) + 2*D_I*beta) - D_Q*S_t - D_U*S_t - d_S*S_t - (k_sn*N_t*(S_t/(k_sn*N_t+S_t)))
+    #dS_dt = (D_I*(1 - beta) + 2*D_I*beta) - D_Q*S_t - D_U*S_t - d_S*S_t
+    #dS_dt = (D_I*(1 - beta) + 2*D_I*beta) - D_Q*S_t - D_U*S_t - d_S*S_t - (k_sn*N_t*((1 - (D_Q + D_U + d_S))*S_t/(k_sn*N_t+(1 - (D_Q + D_U + d_S))*S_t)))   # best so far
+    #dS_dt = (D_I*(1 - beta) + 2*D_I*beta) - D_Q*S_t - D_U*S_t - d_S*S_t + (k_sn*N_t*((1 - D_Q + D_U + d_S)*S_t/(k_sn*N_t+(1 - D_Q + D_U + d_S)*S_t)))
+
+    dS_dt = (D_I*(1 - beta) + 2*D_I*beta) - downregulate_S      # new term
+
+    # dQ_dt = D_Q*S_t - d_Q*(1 - 0.5*I_t/(2 + I_t))*Q_t
+    dQ_dt = downregulate_S * (tau_Q*P_t*amp_P_by_N*amp_P_by_K) / (I_S) - d_Q*(1 - 0.5*I_t/(2 + I_t))*Q_t      # new term
+
+    # dU_dt = D_U*S_t - d_U*U_t
+    dU_dt = downregulate_S * (tau_U*A_t*amp_A_by_K*damp_A_by_N) / (I_S) - d_U*U_t         # new term
 
     dSCSF_dt = S_SCSF*(K_crit / (K_crit + K_t)) - d_SCSF*SCSF_t
 
-    dP_dt = (S_PH*PH_t + S_PQ*Q_t)*(0.5*(I_t**k)/(I_crit**k + I_t**k)+0.5) + S_PS*S_t - d_P*P_t
-    #print(f'dP_dt: {dP_dt}')
-    dA_dt = (S_AH*PH_t + S_AU*U_t)*(0.5*((1/I_t) / (I_crit + (1/I_t)))+0.5)  + S_AS*S_t - d_A*A_t
+    dP_dt = (S_PH*HM_t + S_PQ*Q_t)*(0.5*I_t/(2 + I_t) + 0.5) + S_PS*S_t - d_P*P_t
 
-    dK_dt = S_KD*(k_sn*N_t*(S_t/(k_sn*N_t+S_t))) - R_KU*U_t*((1/I_t)/(I_crit + (1/I_t)))*(K_t/(K_crit + K_t))
+    dA_dt = (S_AH*HM_t + S_AU*U_t)*(0.5*I_t/(2 + I_t) + 0.5)  + S_AS*S_t - d_A*A_t
 
-    dN_dt = g_N*N_t*(1-N_t/N_oo) - (1/3)*(k_nq*Q_t + k_ns*S_t)*(N_t/(N_half + N_t))
+    dK_dt = S_KD*(k_sn*N_t*(S_t/(k_sn*N_t+S_t))) - R_KU*U_t*(K_t/(K_crit + K_t))
+
+    dN_dt = g_N*N_t*(1-(N_t/N_oo)) - (k_nq*Q_t + k_ns*S_t)*(N_t/(N_half + N_t))
 
     # ---------- 5. Return derivative -------------------
 
-    return np.array([dQH_dt, dPH_dt, dN_dt, dP_dt, dA_dt, dSCSF_dt, dK_dt, dQ_dt, dS_dt, dU_dt])
+    return np.array([dHQ_dt, dHM_dt, dN_dt, dP_dt, dA_dt, dSCSF_dt, dK_dt, dQ_dt, dS_dt, dU_dt])
 
 
-def lin_sim(ODE_eq, parameters, init_y, t_final, delta_t, ext_stimuli, ext_stim_method, return_Inflammation = True, return_derivatives=False, debug_mode = False):
+def lin_sim(ODE_eq, parameters, init_y, t_final, delta_t, ext_stimuli, ext_stim_method, return_Inflammation = True, return_derivatives=False):
     '''
     ARGS:
     ODE_eq : Function argument, first-order derivatives of system output
@@ -1140,14 +1165,12 @@ def lin_sim(ODE_eq, parameters, init_y, t_final, delta_t, ext_stimuli, ext_stim_
 
     return_derivatives : Whether tuple returned by function should include derivative information, will appear in data[1]
 
-    debug_mode : Whether tuple returned by function should include debug terms (ODE_eq will determine what debug terms includes); will appear in data[2]
-
     OUTPUT:
     data : 3 tuple of form (model_output, derivatives_output, debug_output); if return_derivatives = False, derivative_outputs = 0 (same applies to debug_output)
     ''' 
     def calculate_I(P_t, A_t, K_t, N_t, theta_N, theta_K, k):
 
-        return (P_t*(N_t**k/(theta_N**k + N_t**k) + 0.25)*((0.5 * (K_t)/(theta_K + K_t) + 1))) / (A_t*(theta_N**k/(theta_N**k + N_t**k) + 0.25)*(0.75 * (K_t)/(theta_K + K_t) + 1))
+        return (P_t*(N_t**k/(theta_N**k + N_t**k) + 0.25)*((0.5 * (K_t)/(theta_K + K_t) + 1))) / (A_t*(theta_N**k/(theta_N**k + N_t**k) + 0.25)*(0.75 * (K_t)/(theta_K + K_t) + 1) + P_t*(N_t**k/(theta_N**k + N_t**k) + 0.25)*((0.5 * (K_t)/(theta_K + K_t) + 1)))
 
     timesteps = np.arange(stop=t_final, step=delta_t)
     model_output = np.zeros((len(init_y), len(timesteps)))
@@ -1157,23 +1180,23 @@ def lin_sim(ODE_eq, parameters, init_y, t_final, delta_t, ext_stimuli, ext_stim_
     if return_Inflammation:
         inflammation_arr = []
 
-    if debug_mode:
+    '''if debug_mode:
         debug_output = np.zeros((10, len(timesteps)))
     else:
-        debug_output = 0
+        debug_output = 0'''
 
     for i, t in enumerate(timesteps[1:]):
         
         ys = model_output[:, i]
 
-        derivatives = ODE_eq(t, ys, parameters, debug_mode)
-        if debug_mode:
+        derivatives = ODE_eq(t, ys, parameters)
+        '''if debug_mode:
             derivative_output [:, i] = derivatives[0]
             debug_output = derivatives[1]
             model_output[:, i+1] = ys + delta_t*derivatives[0]        # Euler approximation step here
-        else:
-            derivative_output [:, i] = derivatives
-            model_output[:, i+1] = ys + delta_t*derivatives         # Euler approximation step here
+        else:'''
+        derivative_output [:, i] = derivatives
+        model_output[:, i+1] = ys + delta_t*derivatives         # Euler approximation step here
 
         #model_output[:, i+1] = ys + delta_t*derivative_output         # Euler approximation step here
 
@@ -1195,7 +1218,7 @@ def lin_sim(ODE_eq, parameters, init_y, t_final, delta_t, ext_stimuli, ext_stim_
     if return_Inflammation:
         model_output = np.vstack((model_output, inflammation_arr))
 
-    data = (model_output, derivative_output, debug_output)
+    data = (model_output, derivative_output)
 
     return data
             
