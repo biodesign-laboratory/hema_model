@@ -2,20 +2,20 @@ import numpy as np
 import matplotlib.pyplot as plt
 from SALib.sample import morris as morris_sample
 from SALib.analyze import morris as morris_analyze
-from SALib.test_functions import Ishigami
 from project_library import lin_sim
 from project_library import csv_to_figure_morris
 from project_library import merge_figures_grid
 import time
-import pandas
 import os
+import pandas as pd
 import M2_debug
 
 # output_names will be used for formatting file names / output_names_laTex will be used when generating matplotlib plots
 # same rule applies to param_names / param_names_laTex
 # see if-else statements below to determine which preset to use
+# this script is specifically meant to be used with MDSC model using morris method
 
-exp_num = 'morris_debug'             # used in file names, does not have to be a number
+exp_num = 'morris_1'             # used in file names, does not have to be a number
 
 output_names = ['HQ', 'HM', 'N', 'P', 'A', 'K', 'Q', 'S', 'U', 'MDSC', 'MF', 'I']
 
@@ -37,16 +37,16 @@ if not os.path.exists(script_dir):
 
 for out_name in output_names:
         
-    for order in ['mu', 'mu_star', 'sigma', 'mu_star_conf']:
+    for order in ['mu', 'mu_star', 'sigma']:
 
         filepath = os.path.join(script_dir, f'Experiment_{exp_num}', f'{out_name}_out', f'{order}')
         if not os.path.exists(filepath):
             os.makedirs(filepath)
 
-
-generate_individual_figs = True
-generate_merged_figs = True
-run_sensitivity_analysis = True
+generate_mu_vs_sigma = True
+generate_individual_figs = False
+generate_merged_figs = False
+run_sensitivity_analysis = False
 nTimesteps = 100            # how many timesteps to run simulation (default=200)
 init_time = 25           # initial time to begin calculating sobol indices, NOT initial time of model(default=100)
 delta_t = 1             # timestep size for sobol index calculation, NOT the timestep used in simulation runs
@@ -103,10 +103,20 @@ if run_sensitivity_analysis:    # run sensitivity analysis and save relevant sen
                        ]                
         }
 
-    param_values_IHD = morris_sample.sample(problem_IHD, 1000, 8, 10)      
+    param_values_IHD = morris_sample.sample(problem_IHD, N = 50, num_levels = 8)       # number of samples generated = N * (P + 1) where P = # of parameters   
     print("Shape of the generated sample: ", param_values_IHD.shape)    # sanity check
     print("First few samples:")
-    #print(param_values_IHD[:3])
+    #print(param_values_IHD[:3, ])
+
+    # --- misc code for step size stuff -----
+    '''step_sizes = {
+    name: (problem_IHD["bounds"][i][1] - problem_IHD["bounds"][i][0]) * (4 / (8 - 1))
+    for i, name in enumerate(problem_IHD["names"])
+    }
+    for name in param_names:
+        print(step_sizes[name])'''
+    #print(f'Unique values for parameter k_H: {np.unique(param_values_IHD[:, 0])}')
+    # -------------------------------
 
     IHD_out = np.zeros((param_values_IHD.shape[0], 13, int((nTimesteps-init_time)/delta_t)))     # this is where the necessary simulation outputs are stored for calculating indices
     print(f"Shape of array to save outputs to: {IHD_out.shape}")    # sanity check
@@ -171,22 +181,6 @@ if run_sensitivity_analysis:    # run sensitivity analysis and save relevant sen
         SI_I = morris_analyze.analyze(problem_IHD, param_values_IHD, IHD_out[:, 12, t], num_levels=8)
 
         #print(SI_HQ.to_df())    # sanity check
-
-        '''mu_SI_HQ, mu_star_SI_HQ, sigma_SI_HQ, mu_star_conf_SI_HQ = SI_HQ.to_df()
-        mu_SI_HM, mu_star_SI_HM, sigma_SI_HM, mu_star_conf_SI_HM = SI_HM.to_df()
-        mu_SI_N, mu_star_SI_N, sigma_SI_N, mu_star_conf_SI_N = SI_N.to_df()
-        mu_SI_P, mu_star_SI_P, sigma_SI_P, mu_star_conf_SI_P = SI_P.to_df()
-        mu_SI_A, mu_star_SI_A, sigma_SI_A, mu_star_conf_SI_A = SI_A.to_df()
-        #mu_SI_SCSF, mu_star_SI_SCSF, sigma_SI_SCSF = SI_SCSF.to_df()
-        mu_SI_K, mu_star_SI_K, sigma_SI_K, mu_star_conf_SI_K = SI_K.to_df()
-        mu_SI_S, mu_star_SI_S, sigma_SI_S, mu_star_conf_SI_S = SI_S.to_df()
-        mu_SI_Q, mu_star_SI_Q, sigma_SI_Q, mu_star_conf_SI_Q = SI_Q.to_df()
-        mu_SI_U, mu_star_SI_U, sigma_SI_U, mu_star_conf_SI_U = SI_U.to_df()
-        mu_SI_MDSC, mu_star_SI_MDSC, sigma_SI_MDSC, mu_star_conf_SI_MDSC = SI_MDSC.to_df()
-        mu_SI_MF, mu_star_SI_MF, sigma_SI_MF, mu_star_conf_SI_MF = SI_MF.to_df()
-        mu_SI_I, mu_star_SI_I, sigma_SI_I, mu_star_conf_SI_I = SI_I.to_df()
-
-        print(f"mu_SI_HQ: {mu_SI_HQ}")'''
 
         df_SI_HQ = SI_HQ.to_df()
         df_SI_HM = SI_HM.to_df()
@@ -295,11 +289,49 @@ if generate_merged_figs:        # merge time-series SI graphs for each output by
 
             merge_figures_grid(2, 3, 800, 600, exp_num, order, output_names[i], param_names, i, script_dir)
             print(f"Merged figures successfully generated for {order} indices.")
-
-        '''else:
-            merge_figures_grid(2, 3, 800, 600, exp_num, order, output_names, param_names)
-            print(f"Merged figures successfully generated for {order}-order indices.")'''           # else don't change output_names set at beginning and uncomment this
     
     end_time = time.time()
-    print("Merged figures successfully generated. Elapsed time: " + str(end_time-start_time))\
-    
+    print("Merged figures successfully generated. Elapsed time: " + str(end_time-start_time))
+
+# == Below code is used to plot mu_star against sigma for testing nonlinearity of effects =======
+if generate_mu_vs_sigma:
+
+    t = 99          # in this case, we are not plotting multiple timestamps; choose a specific timepoint to evaluate
+    Filepath = os.path.join(script_dir, f'Experiment_{exp_num}')
+
+
+    for i, output in enumerate(output_names):
+        
+        df_mu_star = pd.read_csv(os.path.join(Filepath, f'{output}_out', 'mu_star', f'mu_star_SI_{output}_{exp_num}_{t}.csv'), delimiter='\t')
+        df_sigma = pd.read_csv(os.path.join(Filepath, f'{output}_out', 'sigma', f'sigma_SI_{output}_{exp_num}_{t}.csv'), delimiter='\t')
+
+        df_combined = pd.concat([df_mu_star, df_sigma], axis=1).iloc[:, [0, 1, 4]]
+
+        #print(df_combined.columns)             # sanity check
+
+        plt.scatter(df_combined["mu_star"], df_combined["sigma"], color='blue')
+        
+        z = max(df_combined['sigma'].max(), df_combined["mu_star"].max())
+        if output == 'I':
+            print(z)
+        plt.plot(np.arange(0, z, 1), np.arange(0, z, 1), 'g--', label = '$f(x)=x$')         # plots f(x) = x
+        plt.plot(np.arange(0, z, 1), np.arange(0, 2*z, 2), 'r--', label = '$f(x)=2x$')       # plots f(x) = 2x
+        plt.plot(np.arange(0, z, 1), np.arange(0, 1/2*z, 1/2), 'm--', label = '$f(x)=1/2x$')   # plots f(x) = 1/2*x
+
+
+        for j, row in df_combined.iterrows():
+            plt.annotate(row["Unnamed: 0"], (row["mu_star"], row["sigma"]), fontsize=8, xytext=(5,5), textcoords="offset points")
+
+        plt.xlabel("Mu* (Mean Absolute Effect)")
+        plt.ylabel("Sigma (Variability)")
+        plt.title(f"Mu* vs Sigma (${output_names_laTex[i]}({t}$))")
+        plt.legend()
+        plt.grid(True)
+
+        path = os.path.join(Filepath, 'mu_star_vs_sigma')
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        plt.savefig(os.path.join(path, f'{output}_{exp_num}_{t}.png'))
+        plt.close()
+        #plt.show()
