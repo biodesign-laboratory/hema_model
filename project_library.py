@@ -1005,7 +1005,7 @@ def model_2_derivatives(t, y):
     '''
     # ----------- 1. Load parameter values --------------------
 
-    parameters = gv.parameters_global
+    parameters = gv.parameters_2
 
 
     # HSPC parameters
@@ -1415,7 +1415,7 @@ def model_x_derivatives(t, y):
     return np.array([dHQ_dt, dHM_dt, dN_dt, dP_dt, dA_dt, dSCSF_dt, dK_dt, dQ_dt, dS_dt, dU_dt])
 
 
-def beta_model_3(t, y):
+def model_3_derivatives(t, y):
 
     '''
     This is model w/ MDSCs
@@ -1427,6 +1427,7 @@ def beta_model_3(t, y):
     - derivatives : array of derivative values
     '''
     # ----------- 1. Load parameter values --------------------
+    parameters = gv.parameters_3
 
     # HSPC parameters
     k_H = parameters['k_H']                 # number of SCSFs consumed per fully renewing proliferating HSPC
@@ -1480,6 +1481,7 @@ def beta_model_3(t, y):
     k_sn = parameters['k_sn']                  # N kills S
     k_nq = parameters['k_nq']                  # Q kills N (generally high)
     k_ns = parameters['k_ns']                  # S kills N (generally low)
+    k_nm = parameters['k_nm']                  # MDSC kills N (through ROS, generally low)
 
     # misc parameters
     R_KU = parameters['R_KU']                  # rate at which immuno-suppressive cells heal tissue damage
@@ -1488,6 +1490,8 @@ def beta_model_3(t, y):
     k = parameters['k']                        # hill-type coefficient
 
     psi = parameters['psi']                    # parameter that determines the upper limit of proportion of S cells that can be lost in any one moment
+    omega = parameters['omega']                # ratio  (S+P -> MDSC) / (S+P -> Q), see implementation in derivatives below
+    alpha = parameters['alpha']                # Part of determining maximum velocity of HQ + P -> HM and HM + P -> S, see implementation in eta_Q
 
     #eps_3 = parameters['eps_3']
     #eps_4 = parameters['eps_4']
@@ -1495,6 +1499,7 @@ def beta_model_3(t, y):
     C_QM = parameters['C_QM']                  # consumption rate of molecular factors by pro-inflammatory WBCs 
     C_MDM = parameters['C_MDM']                # consumption rate of molecular factors by MDSCs
     C_UM = parameters['C_UM']                  # consumption rate of molecular factors by anti-inflammatory WBCs
+    C_UP = parameters['C_UP']                  # consumption rate of pro-inflammatory cytokines by anti-inflammatory WBCs
 
 
     # ----------- 2. Load variable values --------------------
@@ -1526,14 +1531,15 @@ def beta_model_3(t, y):
     #I_H = (P_t * amp_P_by_N * amp_P_by_K) / ((A_t * amp_A_by_K) + (P_t * amp_P_by_N * amp_P_by_K) + SCSF_t)
     I_H = (P_t * amp_P_by_N * amp_P_by_K) / ((A_t * amp_A_by_K + amp_A_by_SCSF) + (P_t * amp_P_by_N * amp_P_by_K))
 
-    D_I = (HM_t*(1/3*I_t)*P_t)/((1/3*I_t)*HM_t + P_t)      # proportion of proliferating HSPCs differentiating (either symmetric or asymmetric)
+    D_I = (HM_t*(alpha*I_t)*P_t)/((alpha*I_t)*HM_t + P_t)      # proportion of proliferating HSPCs differentiating (either symmetric or asymmetric)
 
     beta = I_t/(I_crit + I_t)                              # proportion of differentiating proliferating HSPCs asymmetrically differentiating (1 parent HSPC -> 2 daughter WBCs)
 
-    eta_Q = (1/3*I_H) * ((HQ_t * (P_t)) / ((1/3*I_H)*HQ_t + P_t))
+    eta_Q = (alpha*I_H) * ((HQ_t * (P_t)) / ((alpha*I_H)*HQ_t + P_t))
 
     downregulate_S = (tau_Q*P_t + tau_U*A_t + k_sn*N_t)*psi*S_t / (tau_Q*P_t + tau_U*A_t + k_sn*N_t + psi*S_t)      # controls number of S cells lost due to interaction with P, A, or N
-    I_S = tau_Q*P_t*amp_P_by_N*amp_P_by_K + tau_U*A_t*amp_A_by_K*damp_A_by_N + k_sn*N_t                             
+    I_S = tau_Q*P_t*amp_P_by_N*amp_P_by_K + tau_U*A_t*amp_A_by_K + k_sn*N_t
+    # I_S = tau_Q*P_t + tau_U*A_t + k_sn*N_t          # w/out amp functions                                      
 
     # ----------- 3b. debug ------------------
 
@@ -1546,21 +1552,24 @@ def beta_model_3(t, y):
 
     dS_dt = (D_I*(1 - beta) + 2*D_I*beta) - downregulate_S
 
-    dQ_dt = (3/4) * downregulate_S * (tau_Q*P_t*amp_P_by_N*amp_P_by_K) / (I_S) * ((1/2*MF_t) / (1/2*MF_t + C_QM*Q_t + C_MDM*MDSC_t + C_UM*U_t)) - d_Q*(1 - 0.5*I_t/(0.7 + I_t))*Q_t      # Why multiply by 1/2? Because S + P -> Q AND MDSC, so I simplify here and assume half become Q, half become MDSCs
+    dQ_dt = (omega) * downregulate_S * (tau_Q*P_t*amp_P_by_N*amp_P_by_K) / (I_S) * ((1/2*MF_t) / (1/2*MF_t + C_QM*Q_t + C_MDM*MDSC_t + C_UM*U_t)) - d_Q*(1 - 0.5*I_t/(0.7 + I_t))*Q_t      # Why multiply by 1/2? Because S + P -> Q AND MDSC, so I simplify here and assume half become Q, half become MDSCs
+    # dQ_dt = (3/4) * downregulate_S * (tau_Q*P_t) / (I_S) * ((1/2*MF_t) / (1/2*MF_t + C_QM*Q_t + C_MDM*MDSC_t + C_UM*U_t)) - d_Q*(1 - 0.5*I_t/(0.7 + I_t))*Q_t           # w/out amp functions
 
-    dU_dt = downregulate_S * (tau_U*A_t*amp_A_by_K*damp_A_by_N) / (I_S) - d_U*U_t
+    dU_dt = downregulate_S * (tau_U*A_t*amp_A_by_K) / (I_S) - d_U*U_t
+    # dU_dt = downregulate_S * (tau_U*A_t) / (I_S) - d_U*U_t           # w/out amp functions
 
     dSCSF_dt = S_SCSF*(K_crit / (K_crit + K_t)) - d_SCSF*SCSF_t
 
-    dP_dt = (S_PH*HM_t + S_PQ*Q_t)*(0.8*I_t + 0.2) + S_PS*S_t - d_P*P_t
+    dP_dt = (S_PH*HM_t + S_PQ*Q_t)*(0.8*I_t + 0.2) + S_PS*S_t - d_P*P_t - (C_UP*U_t * (1-d_P)*P_t)/(C_UP*U_t + (1-d_P)*P_t)
 
     dA_dt = S_AM*MDSC_t + S_AH*HM_t + S_AU*U_t  + S_AS*S_t - d_A*A_t
     
     dK_dt = S_KD*(k_sn*N_t*(S_t/(k_sn*N_t+S_t)))*(k_sn*N_t / I_S) + S_KMD*MDSC_t*((P_t + A_t + N_t)/(1/2*MDSC_t + P_t + A_t + N_t)) + S_KQ*Q_t - (R_KU*U_t*K_t / (R_KU*U_t + K_t))
 
-    dN_dt = g_N*N_t*(1-(N_t/N_oo)) - (k_nq*Q_t + k_ns*S_t )*(N_t/(N_half + N_t))
+    dN_dt = g_N*N_t*(1-(N_t/N_oo)) - (k_nq*Q_t + k_ns*S_t + k_nm*MDSC_t )*(N_t/(N_half + N_t))
 
-    dMDSC_dt = (1/4) * downregulate_S * (tau_Q*P_t*amp_P_by_N*amp_P_by_K) / (I_S) - d_M*( 0.5*Q_t**k / (1/2*MDSC_t**k + Q_t**k) + 0.5)*MDSC_t
+    dMDSC_dt = (1-omega) * downregulate_S * (tau_Q*P_t*amp_P_by_N*amp_P_by_K) / linear_like(I_S, 0.1, 0.00001) - d_M*( 0.5*Q_t**k / linear_like(1/2*MDSC_t**k + Q_t**k, 0.1, 0.00001) + 0.5)*MDSC_t
+    # dMDSC_dt = (1/4) * downregulate_S * (tau_Q*P_t) / (I_S) - d_M*( 0.5*Q_t**k / (1/2*MDSC_t**k + Q_t**k) + 0.5)*MDSC_t
 
     # dTDM_dt = S_TM/3 * ( ((MDSC_t * eps_3 * P_t) / (MDSC_t + eps_3*P_t)) + ((MDSC_t * eps_4 * A_t) / (MDSC_t + eps_4*A_t)) + ((MDSC_t * N_t) / (MDSC_t + N_t))) - d_TDM*TDM_t     Unnecessary ?
 
@@ -1568,7 +1577,7 @@ def beta_model_3(t, y):
 
     # ---------- 5. Return derivative -------------------
 
-    return np.array([dHQ_dt, dHM_dt, dN_dt, dP_dt, dA_dt, dSCSF_dt, dK_dt, dQ_dt, dS_dt, dU_dt, dMDSC_dt, dMF_t])          
+    return np.array([dHQ_dt, dHM_dt, dN_dt, dP_dt, dA_dt, dSCSF_dt, dK_dt, dQ_dt, dS_dt, dU_dt, dMDSC_dt, dMF_t])     
 
 def sim_with_solver(ODE_eq, init_y, t_final):
     sol = solve_ivp(ODE_eq, t_final, init_y)
