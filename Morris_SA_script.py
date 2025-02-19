@@ -14,7 +14,7 @@ import M3_beta
 # same rule applies to param_names / param_names_laTex
 # see if-else statements below to determine which preset to use
 
-exp_num = 'name_here'             # used in file names, does not have to be a number
+exp_num = 'morris_2'             # used in file names, does not have to be a number
 
 output_names = ['HQ', 'HM', 'N', 'P', 'A', 'K', 'Q', 'S', 'U', 'MDSC', 'MF', 'I']
 
@@ -85,7 +85,7 @@ if run_sensitivity_analysis:    # run sensitivity analysis and save relevant sen
                        [1, 10],         # k_nm
                        [1, 10],         # k_ns
                        [1, 100],         # R_KU
-                       [0.6, 0.95],         # I_crit
+                       [0.4, 0.95],         # I_crit
                        [2000, 40_000],         # K_crit
                        [0.1, 1],         # psi
                        [0.5, 1],         # d_M
@@ -102,7 +102,7 @@ if run_sensitivity_analysis:    # run sensitivity analysis and save relevant sen
                        ]                
         }
 
-    param_values_IHD = morris_sample.sample(problem_IHD, N = 50, num_levels = 8)       # number of samples generated = N * (P + 1) where P = # of parameters   
+    param_values_IHD = morris_sample.sample(problem_IHD, N = 500, num_levels = 8)       # number of samples generated = N * (P + 1) where P = # of parameters   
     print("Shape of the generated sample: ", param_values_IHD.shape)    # sanity check
     print("First few samples:")
     #print(param_values_IHD[:3, ])
@@ -276,7 +276,7 @@ if generate_individual_figs:    # generate time-series SI graphs for each permut
 
 if generate_merged_figs:        # merge time-series SI graphs for each output by parameter into one .png
 
-    output_names = [['HQ', 'HM', 'N', 'P', 'A', 'K'],
+    output_names2 = [['HQ', 'HM', 'N', 'P', 'A', 'K'],
                     ['Q', 'S', 'U', 'MDSC', 'MF', 'I']
                     ]
 
@@ -286,7 +286,7 @@ if generate_merged_figs:        # merge time-series SI graphs for each output by
 
         for i in range(2):      # use this to create multiple murged figures, useful when you have many state variables
 
-            merge_figures_grid(2, 3, 800, 600, exp_num, order, output_names[i], param_names, i, script_dir)
+            merge_figures_grid(2, 3, 800, 600, exp_num, order, output_names2[i], param_names, i, script_dir)
             print(f"Merged figures successfully generated for {order} indices.")
     
     end_time = time.time()
