@@ -5,150 +5,330 @@ import time
 from M2_debug import beta_model_3
 import pandas as pd
 from pathlib import Path
+import csv
 
-run_number = 'Sustained_cytokine_storm'                # used in file names, doesn't have to be a number
-model = 3                           # 2 - model 2 (previous, no MDSCs), 3 - model 3 (MDSCs)
+run_number = 'name_here'                # used in file names, doesn't have to be a number
+model = 3                               # 2 - model 2 (previous, no MDSCs), 3 - model 3 (MDSCs)
+output_to_csv = True     
 
-runs = 15
-delta_t = 0.01
-t_final = 400                       # 672 hours = 4 weeks (timescale is arbitrary but I still use it to gauge model behavior)
-# num_outputs = 11
-#bDerivatives = True                # need to update lin_sim code, unavailable for now
-graph_derivatives = True
-delayed_infection = True            # use this to make pathogen input spread out over time period [t_infection_start, t_infection_end)
-t_infection_start = 100             
-t_infection_end = 125               # only used if delayed_infection = True
-path_size_default = 0
-nosocomial_size = 20000
-nosocomial_start = 300
-nosocomial_end = 325
-path_increment = 2500
-output_to_csv = True
+save_init_states = True                # save initial conditions to .csv
+save_parameters = True                # save parameters to .csv
+save_hyperparams = True                # save hyperparameters to .csv
+
+read_from_hyper = True              # whether hyperparameters should be loaded from .csv
+read_from_param = True              # whether model parameters should be loaded from .csv
+read_from_init = True               # whether initial values should be loaded from .csv
+
+read_from_hyper_loc = Path.cwd() / 'presets' / 'hyper_preset_debug.csv'         # .csv containing hyperparameters to read from, put the path here
+read_from_param_loc = Path.cwd() / 'presets' / 'parameter_preset_debug.csv'        # .csv containing model paramaters to read from, put the path here
+read_from_init_loc = Path.cwd() / 'presets' / 'init_val_preset_debug.csv'         # .csv containing model initial values to read from, put the path here
+
+# checks to see if the preset folder exists and if not makes it
+path = Path.cwd() / 'presets'
+if not path.exists():
+    path.mkdir(parents=True, exist_ok=True)
+
+# hyperparameters here
+if not read_from_hyper:             # set hyperparameters manually
+    runs = 15
+    delta_t = 0.01
+    t_final = 400                       # 672 hours = 4 weeks (timescale is arbitrary but I still use it to gauge model behavior)
+    delayed_infection = True            # use this to make pathogen input spread out over time period [t_infection_start, t_infection_end)
+    t_infection_start = 100             
+    t_infection_end = 125               # only used if delayed_infection = True
+    path_size_default = 0
+    nosocomial_size = 20000
+    nosocomial_start = 300
+    nosocomial_end = 325
+    path_increment = 2500
+
+    if save_hyperparams:
+        
+        hyper_parameters = {
+            'runs' : runs,
+            'delta_t' : delta_t,
+            't_final' : t_final,
+            'delayed_infection' : delayed_infection,
+            't_infection_start' : t_infection_start,
+            't_infection_end' : t_infection_end,
+            'path_size_default' : path_size_default,
+            'nosocomial_size' : nosocomial_size,
+            'nosocomial_start' : nosocomial_start,
+            'nosocomial_end' : nosocomial_end,
+            'path_increment' : path_increment,
+        }
+
+        hyper_fname = path / 'hyper_preset_debug.csv'          # file name and location to save to
+
+        with open(hyper_fname, "w", newline='') as file:
+            writer = csv.writer(file)
+            
+            for key, value in hyper_parameters.items():
+                writer.writerow([key, value])
+        
+        print("Hyperparameters successfully saved to .csv")
+
+else:           # set hyperparameters by reading from a .csv
+
+    with open(read_from_hyper_loc, mode="r", encoding="utf-8") as file:
+
+        reader = csv.reader(file)
+
+        #hyper_from_csv = {rows[0]: float(rows[1]) for rows in reader}
+
+        hyper_from_csv = {}
+        for row in reader:
+            key = row[0]
+            value = row[1]
+
+            if value.lower() == "true":     # the key delayed_infection is a bool
+                value = True
+            elif value.lower() == "false":
+                value = False
+            else:
+                if key == 'runs':
+                    value = int(value)      # 'runs' specifically needs to be an int
+                else:
+                    try:
+                        value = float(value)
+                    except ValueError:
+                        pass
+            
+            hyper_from_csv[key] = value
+
+    runs = hyper_from_csv['runs']
+    delta_t = hyper_from_csv['delta_t']
+    t_final = hyper_from_csv['t_final']
+    delayed_infection = hyper_from_csv['delayed_infection']
+    t_infection_start = hyper_from_csv['t_infection_start']
+    t_infection_end = hyper_from_csv['t_infection_end']
+    path_size_default = hyper_from_csv['path_size_default']
+    nosocomial_size = hyper_from_csv['nosocomial_size']
+    nosocomial_start = hyper_from_csv['nosocomial_start']
+    nosocomial_end = hyper_from_csv['nosocomial_end']
+    path_increment = hyper_from_csv['path_increment']
+
+    print("Hyperparameters successfully read from .csv provided")
+    # print(hyper_from_csv)   # sanity check
 
 timesteps = np.arange(stop=t_final, step=delta_t)
-print(len(timesteps))
 
 # initial states here
-if model == 2:
-    init_state = [
+if not read_from_init:        # set initial values manually
+    
+    if model == 2:
+        init_state = [
 
-        10000,  # Quiescent HSPCs
-        5000,      # Proliferating HSPCs
-        0,      # PAMPs (Pathogens)
-        10000,      # Pro-inflammatory Cytokines
-        10000,      # Anti-inflammatory Cytokines
-        10000,  # Stem Cell Supporting Factors
-        0,      # DAMPs (Tissue Damage)
-        0,      # Activated leukocytes
-        600,   # Stable leukocytes
-        0       # Suppressor leukocytes
+            10000,  # Quiescent HSPCs
+            5000,      # Proliferating HSPCs
+            0,      # PAMPs (Pathogens)
+            10000,      # Pro-inflammatory Cytokines
+            10000,      # Anti-inflammatory Cytokines
+            10000,  # Stem Cell Supporting Factors
+            0,      # DAMPs (Tissue Damage)
+            0,      # Activated leukocytes
+            600,   # Stable leukocytes
+            0       # Suppressor leukocytes
 
-    ]
-elif model == 3:
-    init_state = [
+        ]
 
-        10000,  # Quiescent HSPCs
-        5000,      # Proliferating HSPCs
-        0,      # PAMPs (Pathogens)
-        10000,      # Pro-inflammatory Cytokines
-        10000,      # Anti-inflammatory Cytokines
-        10000,  # Stem Cell Supporting Factors
-        1,      # DAMPs (Tissue Damage)
-        500,      # Activated leukocytes
-        500,   # Stable leukocytes
-        500,       # Suppressor leukocytes
-        1,      # MDSC
-        5000,  # MF
+        output_keys = ['HQ', 'HM', 'N', 'P', 'A', 'SCSF', 'K', 'Q', 'S', 'U']
 
-    ]
+        init_dict = dict(zip(output_keys, init_state))              # this dict will be saved as a .csv if save_init_states = True
+
+    elif model == 3:
+        init_state = [
+
+            10000,  # Quiescent HSPCs
+            5000,      # Proliferating HSPCs
+            0,      # PAMPs (Pathogens)
+            10000,      # Pro-inflammatory Cytokines
+            10000,      # Anti-inflammatory Cytokines
+            10000,  # Stem Cell Supporting Factors
+            1,      # DAMPs (Tissue Damage)
+            500,      # Activated leukocytes
+            500,   # Stable leukocytes
+            500,       # Suppressor leukocytes
+            1,      # MDSC
+            5000,  # MF
+
+        ]
+
+        output_keys = ['HQ', 'HM', 'N', 'P', 'A', 'SCSF', 'K', 'Q', 'S', 'U', 'MDSC', 'MF']
+
+        init_dict = dict(zip(output_keys, init_state))      # this dict will be saved as a .csv if save_init_states = True
+
+    if save_init_states:        # save initial values to a .csv preset   
+        init_fname = path / 'init_val_preset_debug.csv'
+
+        with open(init_fname, "w", newline='') as file:
+            writer = csv.writer(file)
+            
+            for key, value in init_dict.items():
+                writer.writerow([key, value])
+        
+        print("Initial values successfully saved to .csv")
+
+else:               # set initial values by reading from .csv
+
+    # Warning: if .csv key-values do not match selected model format, error in sim will occur
+
+    with open(read_from_init_loc, mode="r", encoding="utf-8") as file:
+
+        reader = csv.reader(file)
+
+        init_from_csv = {rows[0]: float(rows[1]) for rows in reader}
+
+    if model == 2:
+        
+        init_state = [
+            init_from_csv['HQ'],
+            init_from_csv['HM'],
+            init_from_csv['N'],
+            init_from_csv['P'],
+            init_from_csv['A'],
+            init_from_csv['SCSF'],
+            init_from_csv['K'],
+            init_from_csv['Q'],
+            init_from_csv['S'],
+            init_from_csv['U']
+        ]
+    
+    elif model == 3:
+    
+        init_state = [
+            init_from_csv['HQ'],
+            init_from_csv['HM'],
+            init_from_csv['N'],
+            init_from_csv['P'],
+            init_from_csv['A'],
+            init_from_csv['SCSF'],
+            init_from_csv['K'],
+            init_from_csv['Q'],
+            init_from_csv['S'],
+            init_from_csv['U'],
+            init_from_csv['MDSC'],
+            init_from_csv['MF']
+        ]
+
+    print("Initial values successfully read from .csv")
+
 
 # parameters here
-if model == 2:
-    parameters = {
+if not read_from_param:         # set model parameters manually
+    
+    if model == 2:
+        parameters = {
 
-        'k_H' : 3,
-        'dH' : 0.05,
-        'theta_N' : 100_000,       # 2000
-        'theta_K' : 50_000,       # 5000
-        'tau_Q' : 1,
-        'tau_U' : 1,
-        'd_SCSF' : 0.3,
-        'd_S' : 0.7,
-        'd_Q' : 0.95,
-        'd_U' : 0.5,
-        'd_P' : 0.95,
-        'd_A' : 0.95,
-        'g_N' : 0.10,
-        'N_oo' : 2 * 10**7,
-        'N_half' : 2500,
-        'S_PH' : 2,
-        'S_PS' : 5,
-        'S_PQ' : 10,
-        'S_AU' : 15,
-        'S_AH' : 0,
-        'S_AS' : 3,
-        'S_SCSF' : 10000,
-        'S_KD' : 1,
-        'k_sn' : 3,
-        'k_nq' : 10,
-        'k_ns' : 0.5,
-        'R_KU' : 10,
-        'I_crit' : 0.8,
-        'K_crit' : 30_000,
-        'k' : 1,
-        'A_crit' : 3,
-        'psi' : 1/10
+            'k_H' : 3,
+            'dH' : 0.05,
+            'theta_N' : 100_000,       # 2000
+            'theta_K' : 50_000,       # 5000
+            'tau_Q' : 1,
+            'tau_U' : 1,
+            'd_SCSF' : 0.3,
+            'd_S' : 0.7,
+            'd_Q' : 0.95,
+            'd_U' : 0.5,
+            'd_P' : 0.95,
+            'd_A' : 0.95,
+            'g_N' : 0.10,
+            'N_oo' : 2 * 10**7,
+            'N_half' : 2500,
+            'S_PH' : 2,
+            'S_PS' : 5,
+            'S_PQ' : 10,
+            'S_AU' : 15,
+            'S_AH' : 0,
+            'S_AS' : 3,
+            'S_SCSF' : 10000,
+            'S_KD' : 1,
+            'k_sn' : 3,
+            'k_nq' : 10,
+            'k_ns' : 0.5,
+            'R_KU' : 10,
+            'I_crit' : 0.8,
+            'K_crit' : 30_000,
+            'k' : 1,
+            'A_crit' : 3,
+            'psi' : 1/10
 
-    }
-elif model == 3:
-    parameters = {
+        }
 
-        'k_H' : 3,
-        'dH' : 0.05,
-        'theta_N' : 100_000,
-        'theta_K' : 50_000,
-        'tau_Q' : 1,
-        'tau_U' : 1,
-        'd_SCSF' : 0.3,
-        'd_S' : 0.1,
-        'd_Q' : 0.95,
-        'd_U' : 0.5,
-        'd_P' : 0.95,
-        'd_A' : 0.95,
-        'g_N' : 0.10,
-        'N_oo' : 2 * 10**7,
-        'N_half' : 2500,
-        'S_PH' : 2,
-        'S_PS' : 5,
-        'S_PQ' : 10,
-        'S_AU' : 15,
-        'S_AH' : 0,
-        'S_AS' : 0,
-        'S_AM' : 8,
-        'S_SCSF' : 5000,
-        'S_KD' : 1,
-        'k_sn' : 3,
-        'k_nq' : 10,
-        'k_nm' : 3,
-        'k_ns' : 0.5,
-        'R_KU' : 10,
-        'I_crit' : 0.8,
-        'K_crit' : 20_000,
-        'k' : 1,
-        'psi' : 1,
-        'd_M' : 9/10,
-        'd_MF' : 0.3,
-        'S_KMD' : 1/5,
-        'S_KQ' : 1/3,
-        'C_QM' : 1,
-        'C_MDM' : 1,
-        'C_UM' : 1/3,
-        'S_MF' : 1000,
-        'omega' : 0.6,
-        'C_UP' : 2,
-        'alpha': 1/3
+    elif model == 3:
+        parameters = {
 
-    }
+            'k_H' : 3,
+            'dH' : 0.05,
+            'theta_N' : 100_000,
+            'theta_K' : 50_000,
+            'tau_Q' : 1,
+            'tau_U' : 1,
+            'd_SCSF' : 0.3,
+            'd_S' : 0.1,
+            'd_Q' : 0.95,
+            'd_U' : 0.5,
+            'd_P' : 0.95,
+            'd_A' : 0.95,
+            'g_N' : 0.10,
+            'N_oo' : 2 * 10**7,
+            'N_half' : 2500,
+            'S_PH' : 2,
+            'S_PS' : 5,
+            'S_PQ' : 10,
+            'S_AU' : 15,
+            'S_AH' : 0,
+            'S_AS' : 0,
+            'S_AM' : 8,
+            'S_SCSF' : 5000,
+            'S_KD' : 1,
+            'k_sn' : 3,
+            'k_nq' : 10,
+            'k_nm' : 3,
+            'k_ns' : 0.5,
+            'R_KU' : 10,
+            'I_crit' : 0.8,
+            'K_crit' : 20_000,
+            'k' : 1,
+            'psi' : 1,
+            'd_M' : 9/10,
+            'd_MF' : 0.3,
+            'S_KMD' : 1/5,
+            'S_KQ' : 1/3,
+            'C_QM' : 1,
+            'C_MDM' : 1,
+            'C_UM' : 1/3,
+            'S_MF' : 1000,
+            'omega' : 0.6,
+            'C_UP' : 2,
+            'alpha': 1/3
+
+        }
+
+    if save_parameters:
+
+        param_fname = path / 'parameter_preset_debug.csv'
+
+        with open(param_fname, "w", newline='') as file:
+            writer = csv.writer(file)
+            
+            for key, value in parameters.items():
+                writer.writerow([key, value])
+        
+        print("Model parameters successfully saved to .csv")
+
+else:           # set model parameters by reading from .csv
+
+    # Warning: if .csv key-values do not match selected model format, error in sim will occur
+    with open(read_from_param_loc, mode="r", encoding="utf-8") as file:
+
+        reader = csv.reader(file)
+
+        parameters = {rows[0]: float(rows[1]) for rows in reader}
+
+    print("Model parameters successfully read from provided .csv")
+    
+
 
 # ----- 0. Generating arrays before running solver -------------
 if model == 2:
@@ -177,35 +357,35 @@ for i in range(runs):       # add stimuli here
             ext_stimuli[i, 2, j] = (nosocomial_size) / len(np.arange(int(nosocomial_start/delta_t), int(nosocomial_end/delta_t)))
 
 
-if bDerivatives:
-    derivatives = np.zeros((runs, num_outputs-1, len(timesteps)))
+'''if bDerivatives:
+    derivatives = np.zeros((runs, num_outputs-1, len(timesteps)))'''
 
 outputs = np.zeros((runs, num_outputs, len(timesteps)))
 
 
 
-# ------- 1. Running ODE solver -------
+# ------- 1. Running ODE solver (can easily swap this out for something like scpipy's solve_ivp() ) -------
 
 start = time.time()
 for i in range(runs):
 
     if model == 2:
-        data = PL.lin_sim(PL.model_2_derivatives, parameters, init_state, t_final, delta_t, ext_stimuli[i], ext_stim_m, return_derivatives=bDerivatives)
+        data = PL.lin_sim(PL.model_2_derivatives, parameters, init_state, t_final, delta_t, ext_stimuli[i], ext_stim_m)
         outputs[i, :, :] = data[0]
         print(f"Run {i+1} output successfully computed")
 
-        if bDerivatives:
+        '''if bDerivatives:
             derivatives[i] = data[1]
-            print(f"Run {i+1} derivatives successfully loaded")
+            print(f"Run {i+1} derivatives successfully loaded")'''
     
     elif model == 3:
         data = PL.lin_sim(beta_model_3, parameters, init_state, t_final, delta_t, ext_stimuli[i], ext_stim_m)
         outputs[i, :, :] = data[0]
         print(f"Run {i+1} output successfully computed")
 
-        if bDerivatives:
+        '''if bDerivatives:
             derivatives[i] = data[1]
-            print(f"Run {i+1} derivatives successfully loaded")
+            print(f"Run {i+1} derivatives successfully loaded")'''
 
 end = time.time()
 print(f'Execution successful. Time elapsed: {end-start}s')
@@ -324,7 +504,7 @@ if model == 2:
 elif model == 3:
     for i in range(num_outputs):
 
-        for j in range(runs):   # sim runs are split into 4 separate figures to make it more readable
+        for j in range(runs):   # sim runs are split into 5 separate figures to make it more readable
 
             if i < 3:
                 axs1[i%3].plot(timesteps, outputs[j, i], label=f'N={ext_stimuli[j, 2, int(100/delta_t)]}')
@@ -392,7 +572,6 @@ elif model == 3:
     axs5.plot(timesteps, np.zeros(len(timesteps)), color=(0, 0, 0, 0.5), linestyle='--')
 
 axs1[2].set_ylim((0, 150_000))        # optional; set y-limit for pathogen graph (useful if N(t) grows to carrying capacity)
-#axs2[2].set_ylim((0, 150_000))        # optional; set y-limit for pathogen graph (useful if SCSF(t) grows to carrying capacity)
 
 # ----------------------------------------------------------
 if model == 2:
@@ -406,7 +585,7 @@ if model == 2:
     fig3.savefig(path / f'sim_{run_number}_K_Q_S.png', dpi=300)
     fig4.savefig(path / f'sim_{run_number}_U_I.png', dpi=300)
 
-if model == 3:
+elif model == 3:
     fig1.tight_layout()
     fig2.tight_layout()
     fig3.tight_layout()
@@ -421,17 +600,3 @@ if model == 3:
 
 plt.show()
 
-# ------------- 3. Saving derivatives to .csv files -------------
-
-'''if bDerivatives:
-
-    print("Saving derivatives to .csv files now.")
-    start = time.time()
-
-    for i in range(runs):
-
-        df = pd.DataFrame(derivatives[i].T, columns=['dHQ', 'dHM', 'dN', 'dP', 'dA', 'dSCSF', 'dK', 'dQ', 'dS', 'dU'], index=list(map(str, timesteps)))
-        df.to_csv(path / f'SIM_{run_number}_{i}_derivatives.csv')
-    
-    end = time.time()
-    print(f'Derivative data successfully saved. Time elapsed: {end-start}')'''
