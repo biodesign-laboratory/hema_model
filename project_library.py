@@ -1427,7 +1427,7 @@ def model_3_derivatives(t, y):
     - derivatives : array of derivative values
     '''
     # ----------- 1. Load parameter values --------------------
-    parameters = gv.parameters_3
+    parameters = gv.parameters_oscilatting_1
 
     # HSPC parameters
     k_H = parameters['k_H']                 # number of SCSFs consumed per fully renewing proliferating HSPC
