@@ -8,14 +8,13 @@ from project_library import merge_figures_grid
 import time
 import os
 import pandas as pd
-import M2_debug
+import M3_beta
 
 # output_names will be used for formatting file names / output_names_laTex will be used when generating matplotlib plots
 # same rule applies to param_names / param_names_laTex
 # see if-else statements below to determine which preset to use
-# this script is specifically meant to be used with MDSC model using morris method
 
-exp_num = 'morris_1'             # used in file names, does not have to be a number
+exp_num = 'name_here'             # used in file names, does not have to be a number
 
 output_names = ['HQ', 'HM', 'N', 'P', 'A', 'K', 'Q', 'S', 'U', 'MDSC', 'MF', 'I']
 
@@ -59,7 +58,7 @@ if run_sensitivity_analysis:    # run sensitivity analysis and save relevant sen
                    'N_half', 'S_PH', 'S_PS', 'S_PQ', 'S_AU', 'S_AH', 'S_AS', 'S_AM', 'S_SCSF', 'S_KD', 'k_sn', 'k_nq', 'k_nm', 'k_ns',
                    'R_KU', 'I_crit', 'K_crit', 'psi', 'd_M', 'd_MF', 'S_KMD', 'S_KQ', 'C_QM', 'C_MDM', 'C_UM', 'S_MF', 'omega', 'C_UP', 'alpha'],
             'bounds': [[1, 10],         # k_H
-                       [0.05, 0.5],         # dH
+                       [0.05, 0.8],         # dH
                        [5000, 50_000],         # theta_N
                        [5000, 50_000],         # theta_K
                        [1, 10],         # tau_Q
@@ -68,8 +67,8 @@ if run_sensitivity_analysis:    # run sensitivity analysis and save relevant sen
                        [0.007, 0.9],         # d_S
                        [0.7, 1],         # d_Q
                        [0.25, 0.85],         # d_U
-                       [0.7, 1],         # d_P
-                       [0.7, 1],         # d_A
+                       [0.8, 1],         # d_P
+                       [0.8, 1],         # d_A
                        [0.002, 0.2],         # g_N
                        [50, 5000],         # N_half
                        [1, 10],         # S_PH
@@ -152,7 +151,7 @@ if run_sensitivity_analysis:    # run sensitivity analysis and save relevant sen
 
     for i, X in enumerate(param_values_dict):
 
-        output = lin_sim(M2_debug.beta_model_3, X, init_state, nTimesteps, 0.01, ext_stim, ext_stim_m)[0]   # simulate the digital system using sample input
+        output = lin_sim(M3_beta.beta_model_3, X, init_state, nTimesteps, 0.01, ext_stim, ext_stim_m)[0]   # simulate the digital system using sample input
 
         IHD_out[i] = output[:, cols]
         print(f"Output {i+1} of {param_values_IHD.shape[0]} successfully calculated!")
@@ -293,7 +292,7 @@ if generate_merged_figs:        # merge time-series SI graphs for each output by
     end_time = time.time()
     print("Merged figures successfully generated. Elapsed time: " + str(end_time-start_time))
 
-# == Below code is used to plot mu_star against sigma for testing nonlinearity of effects =======
+# == Below code is used to plot mu_star against sigma =======
 if generate_mu_vs_sigma:
 
     t = 99          # in this case, we are not plotting multiple timestamps; choose a specific timepoint to evaluate
