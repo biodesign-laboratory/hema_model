@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import project_library as PL
 import time
-from M2_debug import beta_model_3
+from M3_beta import beta_model_3
 import pandas as pd
 from pathlib import Path
 import csv
