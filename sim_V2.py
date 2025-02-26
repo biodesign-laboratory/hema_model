@@ -7,7 +7,7 @@ import pandas as pd
 from pathlib import Path
 import csv
 
-run_number = 'name_here'                # used in file names, doesn't have to be a number
+run_number = 'prolonged_immune'                # used in file names, doesn't have to be a number
 model = 3                               # 2 - model 2 (previous, no MDSCs), 3 - model 3 (MDSCs)
 output_to_csv = True     
 
@@ -15,9 +15,9 @@ save_init_states = True                # save initial conditions to .csv
 save_parameters = True                # save parameters to .csv
 save_hyperparams = True                # save hyperparameters to .csv
 
-read_from_hyper = True              # whether hyperparameters should be loaded from .csv
-read_from_param = True              # whether model parameters should be loaded from .csv
-read_from_init = True               # whether initial values should be loaded from .csv
+read_from_hyper = False              # whether hyperparameters should be loaded from .csv
+read_from_param = False              # whether model parameters should be loaded from .csv
+read_from_init = False               # whether initial values should be loaded from .csv
 
 read_from_hyper_loc = Path.cwd() / 'presets' / 'hyper_preset_debug.csv'         # .csv containing hyperparameters to read from, put the path here
 read_from_param_loc = Path.cwd() / 'presets' / 'parameter_preset_debug.csv'        # .csv containing model paramaters to read from, put the path here
@@ -36,11 +36,11 @@ if not read_from_hyper:             # set hyperparameters manually
     delayed_infection = True            # use this to make pathogen input spread out over time period [t_infection_start, t_infection_end)
     t_infection_start = 100             
     t_infection_end = 125               # only used if delayed_infection = True
-    path_size_default = 0
+    path_size_default = 29300
     nosocomial_size = 20000
     nosocomial_start = 300
     nosocomial_end = 325
-    path_increment = 2500
+    path_increment = 100
 
     if save_hyperparams:
         
@@ -58,7 +58,7 @@ if not read_from_hyper:             # set hyperparameters manually
             'path_increment' : path_increment,
         }
 
-        hyper_fname = path / 'hyper_preset_debug.csv'          # file name and location to save to
+        hyper_fname = path / 'hyper_preset_prolonged_inflammation.csv'          # file name and location to save to
 
         with open(hyper_fname, "w", newline='') as file:
             writer = csv.writer(file)
@@ -159,7 +159,7 @@ if not read_from_init:        # set initial values manually
         init_dict = dict(zip(output_keys, init_state))      # this dict will be saved as a .csv if save_init_states = True
 
     if save_init_states:        # save initial values to a .csv preset   
-        init_fname = path / 'init_val_preset_debug.csv'
+        init_fname = path / 'init_val_preset_prolonged_inflammation.csv'
 
         with open(init_fname, "w", newline='') as file:
             writer = csv.writer(file)
@@ -307,7 +307,7 @@ if not read_from_param:         # set model parameters manually
 
     if save_parameters:
 
-        param_fname = path / 'parameter_preset_debug.csv'
+        param_fname = path / 'parameter_preset_prolonged_inflammation.csv'
 
         with open(param_fname, "w", newline='') as file:
             writer = csv.writer(file)
@@ -409,6 +409,7 @@ path = path / f'Exp_{run_number}'
 if not Path.exists(path):
     Path.mkdir(path)
 
+
 print("Saving outputs to .csv files now.")
 start = time.time()
 
@@ -431,6 +432,8 @@ if model == 2:
     fig2, axs2 = plt.subplots(3, 1)
     fig3, axs3 = plt.subplots(3, 1)
     fig4, axs4 = plt.subplots(2, 1)
+    figs = [fig1, fig2, fig3, fig4]
+    axes = [axs1, axs2, axs3, axs4]
 
 elif model == 3:
     fig1, axs1 = plt.subplots(3, 1)
@@ -438,6 +441,8 @@ elif model == 3:
     fig3, axs3 = plt.subplots(3, 1)
     fig4, axs4 = plt.subplots(3, 1)
     fig5, axs5 = plt.subplots(1, 1)
+    figs = [fig1, fig2, fig3, fig4, fig5]
+    axes = [axs1, axs2, axs3, axs4, axs5]
 
 # graph titles here
 if model == 2:
@@ -480,23 +485,27 @@ if model == 2:
         for j in range(runs):   # sim runs are split into 4 separate figures to make it more readable
 
             if i < 3:
-                axs1[i%3].plot(timesteps, outputs[j, i], label=f'N={ext_stimuli[j, 2, int(100/delta_t)]}')
+                if i == 0:
+                    axs1[i%3].plot(timesteps, outputs[j, i], label=f'N={ext_stimuli[j, 2, int(t_infection_start/delta_t)]}')      # labels only created once per figure
+                else:
+                    axs1[i%3].plot(timesteps, outputs[j, i])
+
                 axs1[i%3].title.set_text(titles[i])
                 #axs1[i%3].legend()
             
             elif i < 6:
-                axs2[(i-3)%3].plot(timesteps, outputs[j, i], label=f'N={ext_stimuli[j, 2, int(100/delta_t)]}')
+                axs2[(i-3)%3].plot(timesteps, outputs[j, i], label=f'N={ext_stimuli[j, 2, int(t_infection_start/delta_t)]}')
                 axs2[(i-3)%3].title.set_text(titles[i])
                 #axs2[i%3].legend()
             
             elif i < 9:
-                axs3[(i-6)%3].plot(timesteps, outputs[j, i], label=f'N={ext_stimuli[j, 2, int(100/delta_t)]}')
+                axs3[(i-6)%3].plot(timesteps, outputs[j, i], label=f'N={ext_stimuli[j, 2, int(t_infection_start/delta_t)]}')
                 axs3[(i-6)%3].plot(timesteps, np.zeros(len(outputs[j, i])))
                 axs3[(i-6)%3].title.set_text(titles[i])
                 #axs3[i%3].legend()
             
             else:
-                axs4[(i-9)%3].plot(timesteps, outputs[j, i], label=f'{ext_stimuli[j, 2, int(100/delta_t)]}')
+                axs4[(i-9)%3].plot(timesteps, outputs[j, i], label=f'{ext_stimuli[j, 2, int(t_infection_start/delta_t)]}')
                 axs4[(i-9)%3].plot(timesteps, np.zeros(len(outputs[j, i])))
                 axs4[(i-9)%3].title.set_text(titles[i])
                 #axs4[i%3].legend()
@@ -507,30 +516,40 @@ elif model == 3:
         for j in range(runs):   # sim runs are split into 5 separate figures to make it more readable
 
             if i < 3:
-                axs1[i%3].plot(timesteps, outputs[j, i], label=f'N={ext_stimuli[j, 2, int(100/delta_t)]}')
+                if i == 0:
+                    axs1[i%3].plot(timesteps, outputs[j, i], label=f'N={ext_stimuli[j, 2, int(t_infection_start/delta_t)]}')
+                else:
+                    axs1[i%3].plot(timesteps, outputs[j, i])
+
                 axs1[i%3].title.set_text(titles[i])
-                #axs1[i%3].legend()
             
             elif i < 6:
-                axs2[(i-3)%3].plot(timesteps, outputs[j, i], label=f'N={ext_stimuli[j, 2, int(100/delta_t)]}')
+                if i == 3:
+                    axs2[(i-3)%3].plot(timesteps, outputs[j, i], label=f'N={ext_stimuli[j, 2, int(t_infection_start/delta_t)]}')
+                else:
+                    axs2[(i-3)%3].plot(timesteps, outputs[j, i])
+                
                 axs2[(i-3)%3].title.set_text(titles[i])
-                #axs2[i%3].legend()
             
             elif i < 9:
-                axs3[(i-6)%3].plot(timesteps, outputs[j, i], label=f'N={ext_stimuli[j, 2, int(100/delta_t)]}')
-                axs3[(i-6)%3].plot(timesteps, np.zeros(len(outputs[j, i])))
+                if i == 6:
+                    axs3[(i-6)%3].plot(timesteps, outputs[j, i], label=f'N={ext_stimuli[j, 2, int(t_infection_start/delta_t)]}')
+                else:
+                    axs3[(i-6)%3].plot(timesteps, outputs[j, i])
+
                 axs3[(i-6)%3].title.set_text(titles[i])
-                #axs3[i%3].legend()
             
             elif i < 12:
-                axs4[(i-9)%3].plot(timesteps, outputs[j, i], label=f'{ext_stimuli[j, 2, int(100/delta_t)]}')
-                axs4[(i-9)%3].plot(timesteps, np.zeros(len(outputs[j, i])))
+                if i == 9:
+                    axs4[(i-9)%3].plot(timesteps, outputs[j, i], label=f'{ext_stimuli[j, 2, int(t_infection_start/delta_t)]}')
+                else:
+                    axs4[(i-9)%3].plot(timesteps, outputs[j, i])
+
                 axs4[(i-9)%3].title.set_text(titles[i])
-                #axs4[i%3].legend()
             
             else:
-                axs5.plot(timesteps, outputs[j, i], label=f'{ext_stimuli[j, 2, int(100/delta_t)]}')
-                axs5.plot(timesteps, np.zeros(len(outputs[j, i])))
+                axs5.plot(timesteps, outputs[j, i], label=f'{ext_stimuli[j, 2, int(t_infection_start/delta_t)]}')
+
                 axs5.title.set_text(titles[i])
                 
 
@@ -571,7 +590,11 @@ elif model == 3:
     
     axs5.plot(timesteps, np.zeros(len(timesteps)), color=(0, 0, 0, 0.5), linestyle='--')
 
-axs1[2].set_ylim((0, 150_000))        # optional; set y-limit for pathogen graph (useful if N(t) grows to carrying capacity)
+
+for fig in figs:
+    fig.legend()
+
+axs1[2].set_ylim((0, 100_000))        # optional; set y-limit for pathogen graph (useful if N(t) grows to carrying capacity)
 
 # ----------------------------------------------------------
 if model == 2:
