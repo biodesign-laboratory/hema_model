@@ -87,13 +87,13 @@ def beta_model_3(t, y, parameters):
     omega = parameters['omega']                # ratio  (S+P -> MDSC) / (S+P -> Q), see implementation in derivatives below
     alpha = parameters['alpha']                # Part of determining maximum velocity of HQ + P -> HM and HM + P -> S, see implementation in eta_Q
 
-    #eps_3 = parameters['eps_3']
-    #eps_4 = parameters['eps_4']
+    beta_N = parameters['beta_N']              # how quickly N upregulates K
 
     C_QM = parameters['C_QM']                  # consumption rate of molecular factors by pro-inflammatory WBCs 
     C_MDM = parameters['C_MDM']                # consumption rate of molecular factors by MDSCs
     C_UM = parameters['C_UM']                  # consumption rate of molecular factors by anti-inflammatory WBCs
     C_UP = parameters['C_UP']                  # consumption rate of pro-inflammatory cytokines by anti-inflammatory WBCs
+
 
 
     # ----------- 2. Load variable values --------------------
@@ -109,13 +109,12 @@ def beta_model_3(t, y, parameters):
     S_t = y[8]              # Pluri-potent, immature WBCs ready for differentiation
     U_t = y[9]              # Immuno-suppressive Leukocytes (e.g. M2 Macrophages, T-cells, etc.)
     MDSC_t = y[10]          # MDSCs
-    #TDM_t = y [11]          # Tissue Damaging Molecules (e.g. ROS, NO, etc.)
     MF_t = y[11]            # Molecular Factors (e.g. L-arginine, iron, etc.)
 
     # ----------- 3a. Calculate functions in derivatives --------------------
     amp_P_by_N = (N_t**k)/(theta_N**k + N_t**k) + 0.25      # amplifies pro-inflammatory signals by pathogen concentration
     amp_P_by_K = 0.5 * (K_t)/(theta_K + K_t) + 1            # amplifies pro-inflammatory signals by tissue damage
-    damp_A_by_N = theta_N**k/(theta_N**k + N_t**k) + 0.25   # dampens the anti-inflammatory signals by pathogen concentration
+    # damp_A_by_N = theta_N**k/(theta_N**k + N_t**k) + 0.25   # dampens the anti-inflammatory signals by pathogen concentration
     amp_A_by_K = 0.75 * (K_t)/(theta_K + K_t) + 1           # amplifies the anti-inflammatory signals by tissue damage
 
     amp_A_by_SCSF = 0.75 * (SCSF_t)/(theta_K + SCSF_t) + 1
@@ -129,13 +128,14 @@ def beta_model_3(t, y, parameters):
 
     beta = I_t/(I_crit + I_t)                              # proportion of differentiating proliferating HSPCs asymmetrically differentiating (1 parent HSPC -> 2 daughter WBCs)
 
-    eta_Q = (alpha*I_H) * ((HQ_t * (P_t)) / ((alpha*I_H)*HQ_t + P_t))
+    eta_Q = (alpha*I_H) * ((P_t * HQ_t) / ((alpha*I_H)*HQ_t + P_t))    # currently used term
 
     downregulate_S = (tau_Q*P_t + tau_U*A_t + k_sn*N_t)*psi*S_t / (tau_Q*P_t + tau_U*A_t + k_sn*N_t + psi*S_t)      # controls number of S cells lost due to interaction with P, A, or N
     I_S = tau_Q*P_t*amp_P_by_N*amp_P_by_K + tau_U*A_t*amp_A_by_K + k_sn*N_t
-    # I_S = tau_Q*P_t + tau_U*A_t + k_sn*N_t          # w/out amp functions                                      
+    # I_S = tau_Q*P_t + tau_U*A_t + k_sn*N_t          # w/out amp functions      
 
-    # ----------- 3b. debug ------------------
+
+    # ----------- 3b. debug ------------------  
 
 
     # ----------- 4. Calculate derivatives --------------------
@@ -158,7 +158,9 @@ def beta_model_3(t, y, parameters):
 
     dA_dt = S_AM*MDSC_t + S_AH*HM_t + S_AU*U_t  + S_AS*S_t - d_A*A_t
     
-    dK_dt = S_KD*(k_sn*N_t*(S_t/(k_sn*N_t+S_t)))*(k_sn*N_t / I_S) + S_KMD*MDSC_t*((P_t + A_t + N_t)/(1/2*MDSC_t + P_t + A_t + N_t)) + S_KQ*Q_t - (R_KU*U_t*K_t / (R_KU*U_t + K_t))
+    # dK_dt = S_KD*((k_sn*N_t*(S_t/(k_sn*N_t+S_t)))*(k_sn*N_t / I_S)) + S_KMD*MDSC_t*((P_t + A_t + N_t)/(1/2*MDSC_t + P_t + A_t + N_t)) + S_KQ*Q_t - (R_KU*U_t*K_t / (R_KU*U_t + K_t))
+    dK_dt = beta_N*N_t + S_KD*((k_sn*N_t*(S_t/(k_sn*N_t+S_t)))*(k_sn*N_t / I_S)) + S_KMD*MDSC_t*((P_t + A_t + N_t)/(1/2*MDSC_t + P_t + A_t + N_t)) + S_KQ*Q_t - (R_KU*U_t*K_t / (R_KU*U_t + K_t))
+    # dK_dt = beta_N*N_t + S_KD*((k_sn*N_t*(S_t/(k_sn*N_t+S_t)))*(k_sn*N_t / I_S) + eta_Q*(beta_N*N_t / (beta_N*N_t + P_t))) + S_KMD*MDSC_t*((P_t + A_t + N_t)/(1/2*MDSC_t + P_t + A_t + N_t)) + S_KQ*Q_t - (R_KU*U_t*K_t / (R_KU*U_t + K_t))
 
     dN_dt = g_N*N_t*(1-(N_t/N_oo)) - (k_nq*Q_t + k_ns*S_t + k_nm*MDSC_t )*(N_t/(N_half + N_t))
 
