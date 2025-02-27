@@ -115,7 +115,7 @@ def beta_model_3(t, y, parameters):
     amp_P_by_N = (N_t**k)/(theta_N**k + N_t**k) + 0.25      # amplifies pro-inflammatory signals by pathogen concentration
     amp_P_by_K = 0.5 * (K_t)/(theta_K + K_t) + 1            # amplifies pro-inflammatory signals by tissue damage
     # damp_A_by_N = theta_N**k/(theta_N**k + N_t**k) + 0.25   # dampens the anti-inflammatory signals by pathogen concentration
-    amp_A_by_K = 0.75 * (K_t)/(theta_K + K_t) + 1           # amplifies the anti-inflammatory signals by tissue damage
+    amp_A_by_K = 1 * (K_t)/(theta_K + K_t) + 0.75           # amplifies the anti-inflammatory signals by tissue damage
 
     amp_A_by_SCSF = 0.75 * (SCSF_t)/(theta_K + SCSF_t) + 1
 
