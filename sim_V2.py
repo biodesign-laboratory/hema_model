@@ -7,9 +7,9 @@ import pandas as pd
 from pathlib import Path
 import csv
 
-run_number = 'Recovery+Septic+Nosocomial'                # used in file names, doesn't have to be a number
+run_number = 'chronic_1'                # used in file names, doesn't have to be a number
 model = 3                               # 2 - model 2 (previous, no MDSCs), 3 - model 3 (MDSCs)
-output_to_csv = True     
+output_to_csv = False     
 
 save_init_states = True                # save initial conditions to .csv
 save_parameters = True                # save parameters to .csv
@@ -23,6 +23,10 @@ read_from_hyper_loc = Path.cwd() / 'presets' / 'hyper_preset_debug.csv'         
 read_from_param_loc = Path.cwd() / 'presets' / 'parameter_preset_debug.csv'        # .csv containing model paramaters to read from, put the path here
 read_from_init_loc = Path.cwd() / 'presets' / 'init_val_preset_debug.csv'         # .csv containing model initial values to read from, put the path here
 
+# the following arguments are used to input artifical quiescent HSPCs, not included in csv
+
+
+
 # checks to see if the preset folder exists and if not makes it
 path = Path.cwd() / 'presets'
 if not path.exists():
@@ -30,17 +34,27 @@ if not path.exists():
 
 # hyperparameters here
 if not read_from_hyper:             # set hyperparameters manually
-    runs = 16
+    runs = 10
     delta_t = 0.01
     t_final = 400                       # 672 hours = 4 weeks (timescale is arbitrary but I still use it to gauge model behavior)
-    delayed_infection = True            # use this to make pathogen input spread out over time period [t_infection_start, t_infection_end)
+    delayed_infection = False            # use this to make pathogen input spread out over time period [t_infection_start, t_infection_end)
     t_infection_start = 100             
-    t_infection_end = 125               # only used if delayed_infection = True
-    path_size_default = 10000
-    nosocomial_size = 18000
-    nosocomial_start = 150
-    nosocomial_end = 200                # only used if delayed_infection = True
-    path_increment = 1000
+    t_infection_end = 200               # only used if delayed_infection = True
+    path_size_default = 40_000
+    nosocomial_size = 10000
+    nosocomial_start = 250
+    nosocomial_end = 350                # only used if delayed_infection = True
+    path_increment = 2000
+
+    HSPC_boost = False
+    HSPC_default = 0
+    HSPC_increment = 5000
+    HSPC_boost_time = 110
+
+    SCSF_boost = False
+    SCSF_default = 0
+    SCSF_increment = 0
+    SCSF_boost_time = 110
 
     if save_hyperparams:
         
@@ -56,6 +70,15 @@ if not read_from_hyper:             # set hyperparameters manually
             'nosocomial_start' : nosocomial_start,
             'nosocomial_end' : nosocomial_end,
             'path_increment' : path_increment,
+            'HSPC_boost' : HSPC_boost,
+            'HSPC_default' : HSPC_default,
+            'HSPC_increment' : HSPC_increment,
+            'HSPC_boost_time' : HSPC_boost_time,
+            'SCSF_boost' : SCSF_boost,
+            'SCSF_default' : SCSF_default,
+            'SCSF_increment' : SCSF_increment,
+            'SCSF_boost_time' : SCSF_boost_time
+
         }
 
         hyper_fname = path / f'hyper_preset_{run_number}.csv'          # file name and location to save to
@@ -81,7 +104,7 @@ else:           # set hyperparameters by reading from a .csv
             key = row[0]
             value = row[1]
 
-            if value.lower() == "true":     # the key delayed_infection is a bool
+            if value.lower() == "true":     # the keys delayed_infection, HSPC_boost, and SCSF_boost are bools
                 value = True
             elif value.lower() == "false":
                 value = False
@@ -107,6 +130,17 @@ else:           # set hyperparameters by reading from a .csv
     nosocomial_start = hyper_from_csv['nosocomial_start']
     nosocomial_end = hyper_from_csv['nosocomial_end']
     path_increment = hyper_from_csv['path_increment']
+
+    HSPC_boost = hyper_from_csv['HSPC_boost']
+    HSPC_default = hyper_from_csv['HSPC_default']
+    HSPC_increment = hyper_from_csv['HSPC_increment']
+    HSPC_boost_time = hyper_from_csv['HSPC_boost_time']
+
+    SCSF_boost = hyper_from_csv['SCSF_boost']
+    SCSF_default = hyper_from_csv['SCSF_default']
+    SCSF_increment = hyper_from_csv['SCSF_increment']
+    SCSF_boost_time = hyper_from_csv['SCSF_boost_time']
+
 
     print("Hyperparameters successfully read from .csv provided")
     # print(hyper_from_csv)   # sanity check
@@ -159,7 +193,7 @@ if not read_from_init:        # set initial values manually
         init_dict = dict(zip(output_keys, init_state))      # this dict will be saved as a .csv if save_init_states = True
 
     if save_init_states:        # save initial values to a .csv preset   
-        init_fname = path / f'init_val_preset_{runs}.csv'
+        init_fname = path / f'init_val_preset_{run_number}.csv'
 
         with open(init_fname, "w", newline='') as file:
             writer = csv.writer(file)
@@ -263,7 +297,7 @@ if not read_from_param:         # set model parameters manually
             'theta_N' : 100_000,
             'theta_K' : 50_000,
             'tau_Q' : 1,
-            'tau_U' : 1,
+            'tau_U' : 2,
             'd_SCSF' : 0.3,
             'd_S' : 0.05,
             'd_Q' : 0.95,
@@ -279,27 +313,27 @@ if not read_from_param:         # set model parameters manually
             'S_AU' : 15,
             'S_AH' : 0,
             'S_AS' : 0,
-            'S_AM' : 8,
-            'S_SCSF' : 5000,
+            'S_AM' : 12,
+            'S_SCSF' : 10000,
             'S_KD' : 1,
             'k_sn' : 3,
             'k_nq' : 10,
             'k_nm' : 3,
             'k_ns' : 0.5,
-            'R_KU' : 20,
+            'R_KU' : 10,
             'I_crit' : 0.8,
-            'K_crit' : 20_000,
+            'K_crit' : 150_000,
             'k' : 1,
             'psi' : 1,
             'd_M' : 9/10,
             'd_MF' : 0.3,
-            'S_KMD' : 1/5,
-            'S_KQ' : 1/3,
+            'S_KMD' : 2,
+            'S_KQ' : 4,
             'C_QM' : 1,
             'C_MDM' : 1,
             'C_UM' : 1/3,
             'S_MF' : 1000,
-            'omega' : 0.6,
+            'omega' : 0.8,
             'C_UP' : 2,
             'alpha': 1/3,
             'beta_N': 10**-3
@@ -308,7 +342,7 @@ if not read_from_param:         # set model parameters manually
 
     if save_parameters:
 
-        param_fname = path / f'parameter_preset_{runs}.csv'
+        param_fname = path / f'parameter_preset_{run_number}.csv'
 
         with open(param_fname, "w", newline='') as file:
             writer = csv.writer(file)
@@ -344,7 +378,7 @@ ext_stimuli = np.zeros((runs, num_outputs-1, len(timesteps)))
 
 for i in range(runs):       # add stimuli here
 
-    if delayed_infection == False:                          # big, one-time pathogen input
+    if delayed_infection == False:                          # one-time pathogen input
         ext_stimuli[i, 2, int(t_infection_start/delta_t)] = path_size_default + path_increment*i
         ext_stimuli[i, 2, int(nosocomial_start/delta_t)] = nosocomial_size        # optional; nosocomial infection
 
@@ -357,6 +391,17 @@ for i in range(runs):       # add stimuli here
 
             ext_stimuli[i, 2, j] = (nosocomial_size) / len(np.arange(int(nosocomial_start/delta_t), int(nosocomial_end/delta_t)))
 
+if HSPC_boost:
+
+    for i in range(runs):
+
+        ext_stimuli[i, 0, int(HSPC_boost_time/delta_t)] = HSPC_default + HSPC_increment*i
+
+if SCSF_boost:
+
+    for i in range(runs):
+
+        ext_stimuli[i, 5, int(SCSF_boost_time/delta_t)] = SCSF_default + SCSF_increment*i
 
 '''if bDerivatives:
     derivatives = np.zeros((runs, num_outputs-1, len(timesteps)))'''
@@ -410,22 +455,22 @@ path = path / f'Exp_{run_number}'
 if not Path.exists(path):
     Path.mkdir(path)
 
+if output_to_csv:
+    print("Saving outputs to .csv files now.")
+    start = time.time()
 
-print("Saving outputs to .csv files now.")
-start = time.time()
+    for i in range(runs):
 
-for i in range(runs):
+        if model == 2:
+            df = pd.DataFrame(outputs[i].T, columns=['HQ', 'HM', 'N', 'P', 'A', 'SCSF', 'K', 'Q', 'S', 'U', 'I'], index=list(map(str, timesteps)))
+            df.to_csv(path / f'SIM_{run_number}_{i}_output.csv')
 
-    if model == 2:
-        df = pd.DataFrame(outputs[i].T, columns=['HQ', 'HM', 'N', 'P', 'A', 'SCSF', 'K', 'Q', 'S', 'U', 'I'], index=list(map(str, timesteps)))
-        df.to_csv(path / f'SIM_{run_number}_{i}_output.csv')
+        elif model == 3:
+            df = pd.DataFrame(outputs[i].T, columns=['HQ', 'HM', 'N', 'P', 'A', 'SCSF', 'K', 'Q', 'S', 'U', 'MDSC', 'MF', 'I'], index=list(map(str, timesteps)))
+            df.to_csv(path / f'SIM_{run_number}_{i}_output.csv')
 
-    elif model == 3:
-        df = pd.DataFrame(outputs[i].T, columns=['HQ', 'HM', 'N', 'P', 'A', 'SCSF', 'K', 'Q', 'S', 'U', 'MDSC', 'MF', 'I'], index=list(map(str, timesteps)))
-        df.to_csv(path / f'SIM_{run_number}_{i}_output.csv')
-
-end = time.time()
-print(f"Outputs successfully saved to .csv's. Time elapsed: {end-start}s")
+    end = time.time()
+    print(f"Outputs successfully saved to .csv's. Time elapsed: {end-start}s")
 
 # instantiate fig, axs objects here
 if model == 2:
@@ -600,9 +645,12 @@ elif model == 3:
 
 
 for fig in figs:
-    fig.legend(loc="upper left")
+    fig.subplots_adjust(left=0.15, hspace=0.4)
+    fig.set_size_inches(14, 9)
+    fig.legend(loc="upper left", fontsize=6)
 
 axs1[2].set_ylim((0, 100_000))        # optional; set y-limit for pathogen graph (useful if N(t) grows to carrying capacity)
+#axs3[0].set_ylim((0, 50_000))        # optional; set y-limit for pathogen graph (useful if K(t) grows large)
 
 # ----------------------------------------------------------
 if model == 2:
@@ -617,11 +665,11 @@ if model == 2:
     fig4.savefig(path / f'sim_{run_number}_U_I.png', dpi=300)
 
 elif model == 3:
-    fig1.tight_layout()
+    '''fig1.tight_layout()
     fig2.tight_layout()
     fig3.tight_layout()
     fig4.tight_layout()
-    fig5.tight_layout()
+    fig5.tight_layout()'''
 
     fig1.savefig(path / f'sim_{run_number}_Hq_Hp_N.png', dpi=300)
     fig2.savefig(path / f'sim_{run_number}_P_A_SCSF.png', dpi=300)
