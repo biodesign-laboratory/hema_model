@@ -2,9 +2,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import project_library as PL
 import time
-from M2_debug import beta_model_3
+from M3_beta import beta_model_3
 import pandas as pd
 from pathlib import Path
+
+import matplotlib as mpl
+plt.rc('text', usetex=True)
+plt.rc('text.latex', preamble=r'\usepackage{amsmath}\usepackage{siunitx}')
+plt.rc('pgf.texsystem.pdflatex')
 
 run_number = 'debug'                # used in file names, doesn't have to be a number
 model = 3                           # 2 - model 2 (previous, no MDSCs), 3 - model 3 (MDSCs)
@@ -18,9 +23,9 @@ graph_derivatives = True
 delayed_infection = False            # use this to make pathogen input spread out over time period [t_infection_start, t_infection_end)
 t_infection_start = 100             
 t_infection_end = 115               # only used if delayed_infection = True
-path_size_default = 100000
+path_size_default = 10000
 nosocomial_size = 20000
-path_increment = 10000
+path_increment = 1000
 output_to_csv = True
 
 timesteps = np.arange(stop=t_final, step=delta_t)
@@ -242,11 +247,11 @@ if model == 2:
     fig4, axs4 = plt.subplots(2, 1)
 
 elif model == 3:
-    fig1, axs1 = plt.subplots(3, 1)
-    fig2, axs2 = plt.subplots(3, 1)
-    fig3, axs3 = plt.subplots(3, 1)
-    fig4, axs4 = plt.subplots(3, 1)
-    fig5, axs5 = plt.subplots(1, 1)
+    fig1, axs1 = plt.subplots(3, 1,figsize=(8,6))
+    fig2, axs2 = plt.subplots(3, 1,figsize=(8,6))
+    fig3, axs3 = plt.subplots(3, 1,figsize=(8,6))
+    fig4, axs4 = plt.subplots(3, 1,figsize=(8,6))
+    fig5, axs5 = plt.subplots(1, 1,figsize=(8,6))
 
 # graph titles here
 if model == 2:
@@ -291,24 +296,24 @@ if model == 2:
             if i < 3:
                 axs1[i%3].plot(timesteps, outputs[j, i], label=f'N={ext_stimuli[j, 2, int(100/delta_t)]}')
                 axs1[i%3].title.set_text(titles[i])
-                #axs1[i%3].legend()
+                axs1[i%3].legend()
             
             elif i < 6:
                 axs2[(i-3)%3].plot(timesteps, outputs[j, i], label=f'N={ext_stimuli[j, 2, int(100/delta_t)]}')
                 axs2[(i-3)%3].title.set_text(titles[i])
-                #axs2[i%3].legend()
+                axs2[i%3].legend()
             
             elif i < 9:
                 axs3[(i-6)%3].plot(timesteps, outputs[j, i], label=f'N={ext_stimuli[j, 2, int(100/delta_t)]}')
                 axs3[(i-6)%3].plot(timesteps, np.zeros(len(outputs[j, i])))
                 axs3[(i-6)%3].title.set_text(titles[i])
-                #axs3[i%3].legend()
+                axs3[i%3].legend()
             
             else:
                 axs4[(i-9)%3].plot(timesteps, outputs[j, i], label=f'{ext_stimuli[j, 2, int(100/delta_t)]}')
                 axs4[(i-9)%3].plot(timesteps, np.zeros(len(outputs[j, i])))
                 axs4[(i-9)%3].title.set_text(titles[i])
-                #axs4[i%3].legend()
+                axs4[i%3].legend()
 
 elif model == 3:
     for i in range(num_outputs):
@@ -318,24 +323,24 @@ elif model == 3:
             if i < 3:
                 axs1[i%3].plot(timesteps, outputs[j, i], label=f'N={ext_stimuli[j, 2, int(100/delta_t)]}')
                 axs1[i%3].title.set_text(titles[i])
-                #axs1[i%3].legend()
+                axs1[i%3].legend()
             
             elif i < 6:
                 axs2[(i-3)%3].plot(timesteps, outputs[j, i], label=f'N={ext_stimuli[j, 2, int(100/delta_t)]}')
                 axs2[(i-3)%3].title.set_text(titles[i])
-                #axs2[i%3].legend()
+                axs2[i%3].legend()
             
             elif i < 9:
                 axs3[(i-6)%3].plot(timesteps, outputs[j, i], label=f'N={ext_stimuli[j, 2, int(100/delta_t)]}')
                 axs3[(i-6)%3].plot(timesteps, np.zeros(len(outputs[j, i])))
                 axs3[(i-6)%3].title.set_text(titles[i])
-                #axs3[i%3].legend()
+                axs3[i%3].legend()
             
             elif i < 12:
                 axs4[(i-9)%3].plot(timesteps, outputs[j, i], label=f'{ext_stimuli[j, 2, int(100/delta_t)]}')
                 axs4[(i-9)%3].plot(timesteps, np.zeros(len(outputs[j, i])))
                 axs4[(i-9)%3].title.set_text(titles[i])
-                #axs4[i%3].legend()
+                axs4[i%3].legend()
             
             else:
                 axs5.plot(timesteps, outputs[j, i], label=f'{ext_stimuli[j, 2, int(100/delta_t)]}')
@@ -408,7 +413,7 @@ if model == 3:
     fig4.savefig(path / f'sim_{run_number}_U_MDSC_MF.png', dpi=300)
     fig5.savefig(path / f'sim_{run_number}_I.png', dpi=300)
 
-plt.show()
+#plt.show()
 
 # ------------- 3. Saving derivatives to .csv files -------------
 
