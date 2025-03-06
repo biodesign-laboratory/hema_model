@@ -18,8 +18,8 @@ runs = 10
 delta_t = 0.01
 t_final = 672                       # 672 hours = 4 weeks (timescale is arbitrary but I still use it to gauge model behavior)
 # num_outputs = 11
-bDerivatives = True
-graph_derivatives = True
+bDerivatives = False
+graph_derivatives = False
 delayed_infection = False            # use this to make pathogen input spread out over time period [t_infection_start, t_infection_end)
 t_infection_start = 100             
 t_infection_end = 115               # only used if delayed_infection = True
