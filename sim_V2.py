@@ -7,6 +7,8 @@ import pandas as pd
 from pathlib import Path
 import csv
 
+import argparse
+
 
 
 # checks to see if the preset folder exists and if not makes it
@@ -104,6 +106,43 @@ def save_params_(param_fname,parameters):
     print("Model parameters successfully saved to .csv")
 
 def main():
+    
+    parser = argparse.ArgumentParser(description='Run simulations')
+
+    parser.add_argument('--save-init-states', action=argparse.BooleanOptionalAction,
+                        help='Save initial conditions.',default=True)
+
+    parser.add_argument('--save-parameters', action=argparse.BooleanOptionalAction,
+                        help='Save parameters.',default=True)
+    
+    parser.add_argument('--save-hyper', action=argparse.BooleanOptionalAction,
+                        help='Save hyper parameters.',default=True)
+
+    parser.add_argument('--read-hyper', action=argparse.BooleanOptionalAction,
+                        help='Read hyper parameters.',default=True)
+    
+    parser.add_argument('--read-param', action=argparse.BooleanOptionalAction,
+                        help='Read parameters.',default=True)
+    
+    parser.add_argument('--read-init', action=argparse.BooleanOptionalAction,
+                        help='Read initial conditions.',default=True)
+
+    args = parser.parse_args()
+    
+    run_number = 'chronic_1'                # used in file names, doesn't have to be a number
+    model = 3                               # 2 - model 2 (previous, no MDSCs), 3 - model 3 (MDSCs)
+    output_to_csv = False     
+
+    save_init_states = args.save_init_states # save initial conditions to .csv
+    save_parameters = args.save_parameters   # save parameters to .csv
+    save_hyperparams = args.save_hyper       # save hyperparameters to .csv
+
+    read_from_hyper = args.read_hyper # whether hyperparameters should be loaded from .csv
+    read_from_param = args.read_param # whether model parameters should be loaded from .csv
+    read_from_init = args.read_init  # whether initial values should be loaded from .csv
+
+    print(args)
+    print(save_init_states)
 
     default_hyp = {
         'runs' : 10,
@@ -193,18 +232,6 @@ def main():
     }
 
     
-
-    run_number = 'chronic_1'                # used in file names, doesn't have to be a number
-    model = 3                               # 2 - model 2 (previous, no MDSCs), 3 - model 3 (MDSCs)
-    output_to_csv = False     
-
-    save_init_states = True                # save initial conditions to .csv
-    save_parameters = True                # save parameters to .csv
-    save_hyperparams = True                # save hyperparameters to .csv
-
-    read_from_hyper = True              # whether hyperparameters should be loaded from .csv
-    read_from_param = True              # whether model parameters should be loaded from .csv
-    read_from_init = True               # whether initial values should be loaded from .csv
 
     read_from_hyper_loc = Path.cwd() / 'presets' / 'hyper_preset_{}.csv'.format(run_number)         # .csv containing hyperparameters to read from, put the path here
     read_from_param_loc = Path.cwd() / 'presets' / 'parameter_preset_{}.csv'.format(run_number)        # .csv containing model paramaters to read from, put the path here
