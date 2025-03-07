@@ -118,20 +118,17 @@ def main():
     parser.add_argument('--save-hyper', action=argparse.BooleanOptionalAction,
                         help='Save hyper parameters.',default=True)
 
-    parser.add_argument('--read-hyper', action=argparse.BooleanOptionalAction,
-                        help='Read hyper parameters.',default=True)
-    
-    parser.add_argument('--read-param', action=argparse.BooleanOptionalAction,
-                        help='Read parameters.',default=True)
-    
-    parser.add_argument('--read-init', action=argparse.BooleanOptionalAction,
-                        help='Read initial conditions.',default=True)
+    parser.add_argument('--read-hyper', action='store_true',help='Read hyper parameters.')
+    parser.add_argument('--read-param', action='store_true',help='Read parameters.')
+    parser.add_argument('--read-init', action='store_true',help='Read initial conditions.')
+
+    parser.add_argument('--save-solution', action='store_true',help='Save outputs to csv file.')
 
     args = parser.parse_args()
     
     run_number = 'chronic_1'                # used in file names, doesn't have to be a number
-    model = 3                               # 2 - model 2 (previous, no MDSCs), 3 - model 3 (MDSCs)
-    output_to_csv = False     
+    #model = 3                               # 2 - model 2 (previous, no MDSCs), 3 - model 3 (MDSCs)
+    output_to_csv = args.solution_csv
 
     save_init_states = args.save_init_states # save initial conditions to .csv
     save_parameters = args.save_parameters   # save parameters to .csv
