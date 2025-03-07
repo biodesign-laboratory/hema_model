@@ -15,7 +15,7 @@ if not PATH_PRESETS.exists():
     PATH_PRESETS.mkdir(parents=True, exist_ok=True)
 
 
-def load_hyper_parameters(read_from_hyper_loc):
+def load_hyper_parameters_(read_from_hyper_loc):
     with open(read_from_hyper_loc, mode="r", encoding="utf-8") as file:
 
         reader = csv.reader(file)
@@ -48,7 +48,7 @@ def load_hyper_parameters(read_from_hyper_loc):
 
     return hyper_from_csv
 
-def save_hyper_parameters(hyper_parameters,run_number):
+def save_hyper_parameters_(hyper_parameters,run_number):
 
     # file name and location to save to
     hyper_fname = PATH_PRESETS / f'hyper_preset_{run_number}.csv'
@@ -60,7 +60,30 @@ def save_hyper_parameters(hyper_parameters,run_number):
             writer.writerow([key, value])
 
     print("Hyperparameters successfully saved to .csv")
+
+
+def load_init_states_(read_from_init_loc):
     
+    with open(read_from_init_loc, mode="r", encoding="utf-8") as file:
+
+        reader = csv.reader(file)
+        init_from_csv = {rows[0]: float(rows[1]) for rows in reader}
+
+    print("Initial values successfully read from .csv")
+
+    return init_from_csv
+
+
+def save_init_states_(init_fname,init_dict):
+
+    with open(init_fname, "w", newline='') as file:
+        writer = csv.writer(file)
+        
+        for key, value in init_dict.items():
+            writer.writerow([key, value])
+            
+        print("Initial values successfully saved to .csv")
+
 
 def main():
 
@@ -86,6 +109,22 @@ def main():
         'SCSF_boost_time' : 110
         
     }
+
+    default_inits = {
+        'HQ':10_000,
+        'HM':5_000,
+        'N':0,
+        'P':10_000,
+        'A':10_000,
+        'SCSF':10_000,
+        'K':1,
+        'Q':500,
+        'S':500,
+        'U':500,
+        'MDSC':1,
+        'MF':5_000
+    }
+
     
 
     run_number = 'chronic_1'                # used in file names, doesn't have to be a number
@@ -111,10 +150,10 @@ def main():
     if not read_from_hyper:             # set hyperparameters manually
         hyp = default_hyp
         if save_hyperparams:
-            save_hyper_parameters(hyp,run_number)
+            save_hyper_parameters_(hyp,run_number)
 
     else:           # set hyperparameters by reading from a .csv
-        hyp = load_hyper_parameters(read_from_hyper_loc)
+        hyp = load_hyper_parameters_(read_from_hyper_loc)
 
     runs = hyp['runs']
     delta_t = hyp['delta_t']
@@ -138,70 +177,39 @@ def main():
     SCSF_increment = hyp['SCSF_increment']
     SCSF_boost_time = hyp['SCSF_boost_time']
 
-
-
     timesteps = np.arange(stop=t_final, step=delta_t)
 
     # initial states here
     if not read_from_init:        # set initial values manually
 
-        init_state = [
-            10000,  # Quiescent HSPCs
-            5000,      # Proliferating HSPCs
-            0,      # PAMPs (Pathogens)
-            10000,      # Pro-inflammatory Cytokines
-            10000,      # Anti-inflammatory Cytokines
-            10000,  # Stem Cell Supporting Factors
-            1,      # DAMPs (Tissue Damage)
-            500,      # Activated leukocytes
-            500,   # Stable leukocytes
-            500,       # Suppressor leukocytes
-            1,      # MDSC
-            5000,  # MF
-        ]
+         # this dict will be saved as a .csv if save_init_states = True
+        init_dict = default_inits
 
-        output_keys = ['HQ', 'HM', 'N', 'P', 'A', 'SCSF', 'K', 'Q', 'S', 'U', 'MDSC', 'MF']
-        
-        init_dict = dict(zip(output_keys, init_state))      # this dict will be saved as a .csv if save_init_states = True
-
-        if save_init_states:        # save initial values to a .csv preset   
+        if save_init_states:        # save initial values to a .csv preset
             init_fname = PATH_PRESETS / f'init_val_preset_{run_number}.csv'
-
-            with open(init_fname, "w", newline='') as file:
-                writer = csv.writer(file)
-
-                for key, value in init_dict.items():
-                    writer.writerow([key, value])
-
-            print("Initial values successfully saved to .csv")
+            save_init_states_(init_fname,init_dict)
 
     else:               # set initial values by reading from .csv
 
         # Warning: if .csv key-values do not match selected model format, error in sim will occur
+        init_dict = load_init_states_(read_from_init_loc)
 
-        with open(read_from_init_loc, mode="r", encoding="utf-8") as file:
+    init_state = [
+        init_dict['HQ'],
+        init_dict['HM'],
+        init_dict['N'],
+        init_dict['P'],
+        init_dict['A'],
+        init_dict['SCSF'],
+        init_dict['K'],
+        init_dict['Q'],
+        init_dict['S'],
+        init_dict['U'],
+        init_dict['MDSC'],
+        init_dict['MF']
+    ]
 
-            reader = csv.reader(file)
 
-            init_from_csv = {rows[0]: float(rows[1]) for rows in reader}
-
-
-        init_state = [
-            init_from_csv['HQ'],
-            init_from_csv['HM'],
-            init_from_csv['N'],
-            init_from_csv['P'],
-            init_from_csv['A'],
-            init_from_csv['SCSF'],
-            init_from_csv['K'],
-            init_from_csv['Q'],
-            init_from_csv['S'],
-            init_from_csv['U'],
-            init_from_csv['MDSC'],
-            init_from_csv['MF']
-        ]
-
-        print("Initial values successfully read from .csv")
 
 
     # parameters here
