@@ -85,6 +85,24 @@ def save_init_states_(init_fname,init_dict):
         print("Initial values successfully saved to .csv")
 
 
+def load_params_(read_from_param_loc):
+    with open(read_from_param_loc, mode="r", encoding="utf-8") as file:
+
+        reader = csv.reader(file)
+        parameters = {rows[0]: float(rows[1]) for rows in reader}
+
+    print("Model parameters successfully read from provided .csv")
+
+def save_params_(param_fname,parameters):
+    
+    with open(param_fname, "w", newline='') as file:
+        writer = csv.writer(file)
+
+        for key, value in parameters.items():
+            writer.writerow([key, value])
+
+    print("Model parameters successfully saved to .csv")
+
 def main():
 
     default_hyp = {
@@ -123,6 +141,55 @@ def main():
         'U':500,
         'MDSC':1,
         'MF':5_000
+    }
+
+    
+    default_params = {
+        'k_H' : 3,
+        'dH' : 0.05,
+        'theta_N' : 100_000,
+        'theta_K' : 50_000,
+        'tau_Q' : 1,
+        'tau_U' : 2,
+        'd_SCSF' : 0.3,
+        'd_S' : 0.05,
+        'd_Q' : 0.95,
+        'd_U' : 0.5,
+        'd_P' : 0.95,
+        'd_A' : 0.95,
+        'g_N' : 0.10,
+        'N_oo' : 2 * 10**7,
+        'N_half' : 2500,
+        'S_PH' : 2,
+        'S_PS' : 5,
+        'S_PQ' : 10,
+        'S_AU' : 15,
+        'S_AH' : 0,
+        'S_AS' : 0,
+        'S_AM' : 12,
+        'S_SCSF' : 10000,
+        'S_KD' : 1,
+        'k_sn' : 3,
+        'k_nq' : 10,
+        'k_nm' : 3,
+        'k_ns' : 0.5,
+        'R_KU' : 10,
+        'I_crit' : 0.8,
+        'K_crit' : 150_000,
+        'k' : 1,
+        'psi' : 1,
+        'd_M' : 9/10,
+        'd_MF' : 0.3,
+        'S_KMD' : 2,
+        'S_KQ' : 4,
+        'C_QM' : 1,
+        'C_MDM' : 1,
+        'C_UM' : 1/3,
+        'S_MF' : 1000,
+        'omega' : 0.8,
+        'C_UP' : 2,
+        'alpha': 1/3,
+        'beta_N': 10**-3
     }
 
     
@@ -215,76 +282,15 @@ def main():
     # parameters here
     if not read_from_param:         # set model parameters manually
 
-        parameters = {
-            'k_H' : 3,
-            'dH' : 0.05,
-            'theta_N' : 100_000,
-            'theta_K' : 50_000,
-            'tau_Q' : 1,
-            'tau_U' : 2,
-            'd_SCSF' : 0.3,
-            'd_S' : 0.05,
-            'd_Q' : 0.95,
-            'd_U' : 0.5,
-            'd_P' : 0.95,
-            'd_A' : 0.95,
-            'g_N' : 0.10,
-            'N_oo' : 2 * 10**7,
-            'N_half' : 2500,
-            'S_PH' : 2,
-            'S_PS' : 5,
-            'S_PQ' : 10,
-            'S_AU' : 15,
-            'S_AH' : 0,
-            'S_AS' : 0,
-            'S_AM' : 12,
-            'S_SCSF' : 10000,
-            'S_KD' : 1,
-            'k_sn' : 3,
-            'k_nq' : 10,
-            'k_nm' : 3,
-            'k_ns' : 0.5,
-            'R_KU' : 10,
-            'I_crit' : 0.8,
-            'K_crit' : 150_000,
-            'k' : 1,
-            'psi' : 1,
-            'd_M' : 9/10,
-            'd_MF' : 0.3,
-            'S_KMD' : 2,
-            'S_KQ' : 4,
-            'C_QM' : 1,
-            'C_MDM' : 1,
-            'C_UM' : 1/3,
-            'S_MF' : 1000,
-            'omega' : 0.8,
-            'C_UP' : 2,
-            'alpha': 1/3,
-            'beta_N': 10**-3
-        }
+        parameters = default_params
 
         if save_parameters:
-
             param_fname = PATH_PRESETS / f'parameter_preset_{run_number}.csv'
-
-            with open(param_fname, "w", newline='') as file:
-                writer = csv.writer(file)
-
-                for key, value in parameters.items():
-                    writer.writerow([key, value])
-
-            print("Model parameters successfully saved to .csv")
+            save_params_(param_fname,parameters)
 
     else:           # set model parameters by reading from .csv
-
         # Warning: if .csv key-values do not match selected model format, error in sim will occur
-        with open(read_from_param_loc, mode="r", encoding="utf-8") as file:
-
-            reader = csv.reader(file)
-            parameters = {rows[0]: float(rows[1]) for rows in reader}
-
-        print("Model parameters successfully read from provided .csv")
-
+        parameters = load_params_(read_from_param_loc)
 
 
     # ----- 0. Generating arrays before running solver -------------
