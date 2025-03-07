@@ -48,10 +48,7 @@ def load_hyper_parameters_(read_from_hyper_loc):
 
     return hyper_from_csv
 
-def save_hyper_parameters_(hyper_parameters,run_number):
-
-    # file name and location to save to
-    hyper_fname = PATH_PRESETS / f'hyper_preset_{run_number}.csv'
+def save_hyper_parameters_(hyper_fname,hyper_parameters):
 
     with open(hyper_fname, "w", newline='') as file:
         writer = csv.writer(file)
@@ -91,7 +88,10 @@ def load_params_(read_from_param_loc):
         reader = csv.reader(file)
         parameters = {rows[0]: float(rows[1]) for rows in reader}
 
+    
     print("Model parameters successfully read from provided .csv")
+
+    return parameters
 
 def save_params_(param_fname,parameters):
     
@@ -202,22 +202,24 @@ def main():
     save_parameters = True                # save parameters to .csv
     save_hyperparams = True                # save hyperparameters to .csv
 
-    read_from_hyper = False              # whether hyperparameters should be loaded from .csv
-    read_from_param = False              # whether model parameters should be loaded from .csv
-    read_from_init = False               # whether initial values should be loaded from .csv
+    read_from_hyper = True              # whether hyperparameters should be loaded from .csv
+    read_from_param = True              # whether model parameters should be loaded from .csv
+    read_from_init = True               # whether initial values should be loaded from .csv
 
-    read_from_hyper_loc = Path.cwd() / 'presets' / 'hyper_preset_debug.csv'         # .csv containing hyperparameters to read from, put the path here
-    read_from_param_loc = Path.cwd() / 'presets' / 'parameter_preset_debug.csv'        # .csv containing model paramaters to read from, put the path here
-    read_from_init_loc = Path.cwd() / 'presets' / 'init_val_preset_debug.csv'         # .csv containing model initial values to read from, put the path here
+    read_from_hyper_loc = Path.cwd() / 'presets' / 'hyper_preset_{}.csv'.format(run_number)         # .csv containing hyperparameters to read from, put the path here
+    read_from_param_loc = Path.cwd() / 'presets' / 'parameter_preset_{}.csv'.format(run_number)        # .csv containing model paramaters to read from, put the path here
+    read_from_init_loc = Path.cwd() / 'presets' / 'init_val_preset_{}.csv'.format(run_number)         # .csv containing model initial values to read from, put the path here
 
     # the following arguments are used to input artifical quiescent HSPCs, not included in csv
 
 
-    # hyperparameters here
-    if not read_from_hyper:             # set hyperparameters manually
+    #################################### hyperparameters here
+    if not read_from_hyper:
         hyp = default_hyp
         if save_hyperparams:
-            save_hyper_parameters_(hyp,run_number)
+            # file name and location to save to
+            hyper_fname = PATH_PRESETS / f'hyper_preset_{run_number}.csv'
+            save_hyper_parameters_(hyper_fname,hyp)
 
     else:           # set hyperparameters by reading from a .csv
         hyp = load_hyper_parameters_(read_from_hyper_loc)
@@ -246,7 +248,7 @@ def main():
 
     timesteps = np.arange(stop=t_final, step=delta_t)
 
-    # initial states here
+    #################################### initial states here
     if not read_from_init:        # set initial values manually
 
          # this dict will be saved as a .csv if save_init_states = True
@@ -276,10 +278,7 @@ def main():
         init_dict['MF']
     ]
 
-
-
-
-    # parameters here
+    #################################### parameters here
     if not read_from_param:         # set model parameters manually
 
         parameters = default_params
@@ -293,6 +292,7 @@ def main():
         parameters = load_params_(read_from_param_loc)
 
 
+        
     # ----- 0. Generating arrays before running solver -------------
     
     num_outputs = 13
