@@ -1,3 +1,4 @@
+
 import matplotlib.pyplot as plt
 import numpy as np
 import project_library as PL
@@ -8,6 +9,7 @@ from pathlib import Path
 import csv
 
 import argparse
+import os
 
 
 
@@ -128,7 +130,7 @@ def main():
     
     run_number = 'chronic_1'                # used in file names, doesn't have to be a number
     #model = 3                               # 2 - model 2 (previous, no MDSCs), 3 - model 3 (MDSCs)
-    output_to_csv = args.solution_csv
+    output_to_csv = args.save_solution
 
     save_init_states = args.save_init_states # save initial conditions to .csv
     save_parameters = args.save_parameters   # save parameters to .csv
@@ -237,8 +239,8 @@ def main():
     # the following arguments are used to input artifical quiescent HSPCs, not included in csv
 
 
-    #################################### hyperparameters here
-    if not read_from_hyper:
+    #################################### hyperparameters here    
+    if not(os.path.isfile(read_from_hyper_loc)) or not(read_from_hyper):
         hyp = default_hyp
         if save_hyperparams:
             # file name and location to save to
@@ -273,9 +275,10 @@ def main():
     timesteps = np.arange(stop=t_final, step=delta_t)
 
     #################################### initial states here
-    if not read_from_init:        # set initial values manually
-
-         # this dict will be saved as a .csv if save_init_states = True
+    
+    if not(os.path.isfile(read_from_init_loc)) or not(read_from_init):
+        # set initial values manually
+        # this dict will be saved as a .csv if save_init_states = True
         init_dict = default_inits
 
         if save_init_states:        # save initial values to a .csv preset
@@ -303,7 +306,8 @@ def main():
     ]
 
     #################################### parameters here
-    if not read_from_param:         # set model parameters manually
+    if not(os.path.isfile(read_from_param_loc)) or not(read_from_param):
+        # set model parameters manually
 
         parameters = default_params
 
