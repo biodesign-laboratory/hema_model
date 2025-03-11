@@ -249,8 +249,6 @@ def main():
     read_from_init_loc = Path.cwd() / 'presets' / 'init_val_preset_{}.csv'.format(run_number)         # .csv containing model initial values to read from, put the path here
 
     # the following arguments are used to input artifical quiescent HSPCs, not included in csv
-
-
     #################################### hyperparameters here    
     if not(os.path.isfile(read_from_hyper_loc)) or not(read_from_hyper):
         hyp = default_hyp
@@ -283,7 +281,7 @@ def main():
     SCSF_increment = hyp['SCSF_increment']
     SCSF_boost_time = hyp['SCSF_boost_time']
 
-    timesteps = np.arange(stop=t_final, step=delta_t)
+    #timesteps = np.arange(stop=t_final, step=delta_t)
 
     #################################### initial states here
     
@@ -335,9 +333,9 @@ def main():
     # ----- 0. Generating arrays before running solver -------------
     
     num_outputs = 13
-    ext_stim_m = ['ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD']
+    #ext_stim_m = ['ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD', 'ADD']
 
-    ext_stimuli = np.zeros((num_outputs-1, len(timesteps)))
+    #ext_stimuli = np.zeros((num_outputs-1, len(timesteps)))
 
     #if delayed_infection == False:                          # one-time pathogen input
     #    ext_stimuli[2, int(t_infection_start/delta_t)] = path_size_default
@@ -364,14 +362,18 @@ def main():
 
     # ------- 1. Run ODE solver -------
 
-    stim_time = 100
-    stim_size = 1000
+    stim_times = [100]
+    stim_sizes = [2000]
 
     start = time.time()
     t,data = PL.lin_sim_scipy(beta_model_3, parameters, init_state, t_final,
-                            delta_t, stim_time, stim_size)
-    print(t.shape,data.shape)
-    outputs = data
+                              delta_t, stim_times, stim_sizes)
+    I = PL.calculate_I(data[3], data[4], data[6], data[2], parameters['theta_N'],
+                       parameters['theta_K'], parameters['k'])
+
+
+    outputs = np.concatenate([data,I.reshape(1,-1)])
+
     print(f"Run output successfully computed")
     end = time.time()
     print(f'Execution successful. Time elapsed: {end-start}s')
@@ -396,13 +398,14 @@ def main():
         print("Saving outputs to .csv files now.")
         start = time.time()
 
-        df = pd.DataFrame(outputs[i].T, columns=['HQ', 'HM', 'N', 'P', 'A', 'SCSF', 'K', 'Q', 'S', 'U', 'MDSC', 'MF', 'I'], index=list(map(str, timesteps)))
+        df = pd.DataFrame(outputs[i].T, columns=['HQ', 'HM', 'N', 'P', 'A', 'SCSF', 'K', 'Q', 'S', 'U', 'MDSC', 'MF', 'I'], index=list(map(str, t)))
         df.to_csv(path_e / f'SIM_{run_number}_{i}_output.csv')
         
         end = time.time()
         print(f"Outputs successfully saved to .csv's. Time elapsed: {end-start}s")
 
-    fig1, axs = plt.subplots(4, 4)
+    fig1, axs = plt.subplots(3, 4, figsize=(8,7))
+    fig2, axs2 = plt.subplots(1, 1, figsize=(8,2))
 
     axs1 = np.asarray(axs).flatten()
 
@@ -423,13 +426,14 @@ def main():
         '$I(t)$'
     ]
 
-    # axs[i%4, i//4]
 
-    # plotting code here
+    for i,out in enumerate(outputs[:-1]):
+        axs1[i].plot(t, out)
+        axs1[i].set_title(titles[i])
 
-    for i in range(num_outputs-1):
-        axs1[i].plot(t, outputs[i])
-
+    axs2.plot(I)
+    
+    plt.tight_layout()
 
     # ----------------------------------------------------------
 

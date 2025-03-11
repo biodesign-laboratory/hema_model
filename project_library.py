@@ -1230,21 +1230,23 @@ def calculate_I(P_t, A_t, K_t, N_t, theta_N, theta_K, k):
     return (P_t*(N_t**k/(theta_N**k + N_t**k) + 0.25)*((0.5 * (K_t)/(theta_K + K_t) + 1))) / (A_t*(theta_N**k/(theta_N**k + N_t**k) + 0.25)*(0.75 * (K_t)/(theta_K + K_t) + 1) + P_t*(N_t**k/(theta_N**k + N_t**k) + 0.25)*((0.5 * (K_t)/(theta_K + K_t) + 1)))
 
 
-def event_function(t, y, space=None, delta_time=None):
+def event_function(t, y, parameters, stim_time):
     """
     trigger event when t-delta_time = 0
     space is just a dummy variable. the number of parameters
-    after t,y need to match the number of terms in the "args" keyword arg
+    after t,y need to match the terms in the "args" keyword arg
     in the solve_ivp call.
     """
     
-    return t - delta_time
+    return t - stim_time
 
     
-def lin_sim_scipy(ODE_eq, parameters, y0, tf, dt, stim_time, stim_size):
+def lin_sim_scipy(ODE_eq, parameters, y0, tf, dt, stim_times=[], stim_sizes=[]):
     
     '''
     lin_sim for scipy
+    assume single delta function stimuli for now.
+    Next: heaviside inputs and multiple stimuli with index choice.
     
     ARGS:
     ODE_eq : Function argument, first-order derivatives of system output
@@ -1255,8 +1257,7 @@ def lin_sim_scipy(ODE_eq, parameters, y0, tf, dt, stim_time, stim_size):
 
     stim_time : time(s) of delta-function
     stim_size : stimulus size(s)
-    Start with 1
-    I will add heaviside inputs next.
+    
 
     OUTPUT:
     solution
@@ -1267,16 +1268,16 @@ def lin_sim_scipy(ODE_eq, parameters, y0, tf, dt, stim_time, stim_size):
     t = np.arange(0,tf,dt)
     
     out = solve_ivp(ODE_eq,(t[0],t[-1]),y0,
-                    args=(parameters,stim_time),
+                    args=(parameters,stim_times[0]),
                     events=event_function)
 
     y2 = out.y[:,-1]
-    y2[2] += stim_size
+    y2[2] += stim_sizes[0]
     t2 = np.arange(out.t[-1]+dt,tf,dt)
     print(out.t[-1],tf)
 
     out2 = solve_ivp(ODE_eq,(t2[0],t2[-1]),y2,
-                     args=(parameters,stim_time),
+                     args=(parameters,stim_times[0]),
                      method='LSODA')
 
     data = np.concatenate([out.y.T,out2.y.T])
