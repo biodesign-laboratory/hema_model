@@ -1,3 +1,4 @@
+from scipy.integrate import solve_ivp
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -1221,4 +1222,66 @@ def lin_sim(ODE_eq, parameters, init_y, t_final, delta_t, ext_stimuli, ext_stim_
     data = (model_output, derivative_output)
 
     return data
+            
+
+
+def calculate_I(P_t, A_t, K_t, N_t, theta_N, theta_K, k):
+    
+    return (P_t*(N_t**k/(theta_N**k + N_t**k) + 0.25)*((0.5 * (K_t)/(theta_K + K_t) + 1))) / (A_t*(theta_N**k/(theta_N**k + N_t**k) + 0.25)*(0.75 * (K_t)/(theta_K + K_t) + 1) + P_t*(N_t**k/(theta_N**k + N_t**k) + 0.25)*((0.5 * (K_t)/(theta_K + K_t) + 1)))
+
+
+def event_function(t, y, space=None, delta_time=None):
+    """
+    trigger event when t-delta_time = 0
+    space is just a dummy variable. the number of parameters
+    after t,y need to match the number of terms in the "args" keyword arg
+    in the solve_ivp call.
+    """
+    
+    return t - delta_time
+
+    
+def lin_sim_scipy(ODE_eq, parameters, y0, tf, dt, stim_time, stim_size):
+    
+    '''
+    lin_sim for scipy
+    
+    ARGS:
+    ODE_eq : Function argument, first-order derivatives of system output
+    parameters : dict, must be compatible with ODE_eq
+    init_y : Initial state of the system, init_y=(y_1(0), y_2(0), ..., y_n(0))
+    t_final : Final timestep to reach
+    delta_t : Timestep size
+
+    stim_time : time(s) of delta-function
+    stim_size : stimulus size(s)
+    Start with 1
+    I will add heaviside inputs next.
+
+    OUTPUT:
+    solution
+    '''
+
+    event_function.terminal = True
+
+    t = np.arange(0,tf,dt)
+    
+    out = solve_ivp(ODE_eq,(t[0],t[-1]),y0,
+                    args=(parameters,stim_time),
+                    events=event_function)
+
+    y2 = out.y[:,-1]
+    y2[2] += stim_size
+    t2 = np.arange(out.t[-1]+dt,tf,dt)
+    print(out.t[-1],tf)
+
+    out2 = solve_ivp(ODE_eq,(t2[0],t2[-1]),y2,
+                     args=(parameters,stim_time),
+                     method='LSODA')
+
+    data = np.concatenate([out.y.T,out2.y.T])
+    t = np.concatenate([out.t,out2.t])
+    print(out.t[-1],out2.t[0],out2.t[-1])
+
+    return t,data.T
             

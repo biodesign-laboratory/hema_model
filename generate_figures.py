@@ -2,9 +2,17 @@
 centralized figure generation file. Also acts as code documentation.
 """
 
+# user modules
+import sim_V2b as sv2
+
+# system modules
+import os
 import numpy as np
+import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import matplotlib
+
+
 
 #### set up LaTeX for plots.
 matplotlib.rcParams['font.family'] = 'serif'
@@ -20,11 +28,12 @@ preamble = (r'\usepackage{amsmath}'
 matplotlib.rcParams['text.latex.preamble'] = preamble
 fontsize = 12
 
+def test():
+    fig,axs = plt.subplots()
+    return fig
+
 
 def generate_figure(function, args, filenames, dpi=200):
-    # workaround for python bug where forked processes use the same random 
-    # filename.
-    #tempfile._name_sequence = None;
 
     fig = function(*args)
 
@@ -42,7 +51,7 @@ def main():
         os.mkdir('figs')
     
     figures = [
-        (forcing_fn,[],['figs/f_forcing.pdf']),
+        (test,[],['figs/test.pdf']),
         
     ]
     
