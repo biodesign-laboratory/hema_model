@@ -1,5 +1,14 @@
 """
 csv is the default I/O format.
+
+I view this file as a debugging tool and a means to quickly explore some outputs
+before writing the main plotting code in generate_figures.py.
+
+This file allows the use of terminal flags, which are not only more user-friendly,
+but directly compatible with running on the cluster.
+
+I'll work on getting this file to act like the original sim_V2.py.
+
 """
 
 import matplotlib.pyplot as plt
@@ -398,8 +407,8 @@ def main():
         print("Saving outputs to .csv files now.")
         start = time.time()
 
-        df = pd.DataFrame(outputs[i].T, columns=['HQ', 'HM', 'N', 'P', 'A', 'SCSF', 'K', 'Q', 'S', 'U', 'MDSC', 'MF', 'I'], index=list(map(str, t)))
-        df.to_csv(path_e / f'SIM_{run_number}_{i}_output.csv')
+        df = pd.DataFrame(outputs.T, columns=['HQ', 'HM', 'N', 'P', 'A', 'SCSF', 'K', 'Q', 'S', 'U', 'MDSC', 'MF', 'I'], index=list(map(str, t)))
+        df.to_csv(path_e / f'SIM_{run_number}_output.csv')
         
         end = time.time()
         print(f"Outputs successfully saved to .csv's. Time elapsed: {end-start}s")
