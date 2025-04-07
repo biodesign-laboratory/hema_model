@@ -212,6 +212,56 @@ def get_default_params():
     }
     return default_params
 
+
+def get_parameters(read_from_param_loc,read_from_param,run_number,save_parameters):
+    if not(os.path.isfile(read_from_param_loc)) or not(read_from_param):
+        # set model parameters manually
+
+        parameters = get_default_params()
+
+        if save_parameters:
+            param_fname = PATH_PRESETS / f'parameter_preset_{run_number}.csv'
+            save_params_(param_fname,parameters)
+
+    else:           # set model parameters by reading from .csv
+        # Warning: if .csv key-values do not match selected model format, error in sim will occur
+        parameters = load_params_(read_from_param_loc)
+
+    return parameters
+
+
+def get_init_states(read_from_init_loc,read_from_init,run_number,save_init_states):
+    if not(os.path.isfile(read_from_init_loc)) or not(read_from_init):
+        # set initial values manually
+        # this dict will be saved as a .csv if save_init_states = True
+        init_dict = get_default_inits()
+
+        if save_init_states:        # save initial values to a .csv preset
+            init_fname = PATH_PRESETS / f'init_val_preset_{run_number}.csv'
+            save_init_states_(init_fname,init_dict)
+
+    else:               # set initial values by reading from .csv
+
+        # Warning: if .csv key-values do not match selected model format, error in sim will occur
+        init_dict = load_init_states_(read_from_init_loc)
+
+    return init_dict
+
+
+def get_hyp(read_from_hyper_loc,read_from_hyper,run_number,save_hyperparams):
+    if not(os.path.isfile(read_from_hyper_loc)) or not(read_from_hyper):
+        hyp = get_default_hyp()
+        if save_hyperparams:
+            # file name and location to save to
+            hyper_fname = PATH_PRESETS / f'hyper_preset_{run_number}.csv'
+            save_hyper_parameters_(hyper_fname,hyp)
+
+    else:           # set hyperparameters by reading from a .csv
+        hyp = load_hyper_parameters_(read_from_hyper_loc)
+
+    return hyp
+
+
 def main():
     
     parser = argparse.ArgumentParser(description='Run simulations')
@@ -259,16 +309,10 @@ def main():
 
     # the following arguments are used to input artifical quiescent HSPCs, not included in csv
     #################################### hyperparameters here    
-    if not(os.path.isfile(read_from_hyper_loc)) or not(read_from_hyper):
-        hyp = default_hyp
-        if save_hyperparams:
-            # file name and location to save to
-            hyper_fname = PATH_PRESETS / f'hyper_preset_{run_number}.csv'
-            save_hyper_parameters_(hyper_fname,hyp)
 
-    else:           # set hyperparameters by reading from a .csv
-        hyp = load_hyper_parameters_(read_from_hyper_loc)
 
+    hyp = get_hyp(read_from_hyper_loc,read_from_hyper,run_number,save_hyperparams)
+    
     delta_t = hyp['delta_t']
     t_final = hyp['t_final']
     delayed_infection = hyp['delayed_infection']
@@ -293,20 +337,8 @@ def main():
     #timesteps = np.arange(stop=t_final, step=delta_t)
 
     #################################### initial states here
-    
-    if not(os.path.isfile(read_from_init_loc)) or not(read_from_init):
-        # set initial values manually
-        # this dict will be saved as a .csv if save_init_states = True
-        init_dict = default_inits
 
-        if save_init_states:        # save initial values to a .csv preset
-            init_fname = PATH_PRESETS / f'init_val_preset_{run_number}.csv'
-            save_init_states_(init_fname,init_dict)
-
-    else:               # set initial values by reading from .csv
-
-        # Warning: if .csv key-values do not match selected model format, error in sim will occur
-        init_dict = load_init_states_(read_from_init_loc)
+    init_dict = get_init_states(read_from_init_loc,read_from_init,run_number,save_init_states)
 
     init_state = [
         init_dict['HQ'],
@@ -324,18 +356,7 @@ def main():
     ]
 
     #################################### parameters here
-    if not(os.path.isfile(read_from_param_loc)) or not(read_from_param):
-        # set model parameters manually
-
-        parameters = default_params
-
-        if save_parameters:
-            param_fname = PATH_PRESETS / f'parameter_preset_{run_number}.csv'
-            save_params_(param_fname,parameters)
-
-    else:           # set model parameters by reading from .csv
-        # Warning: if .csv key-values do not match selected model format, error in sim will occur
-        parameters = load_params_(read_from_param_loc)
+    parameters = get_parameters(read_from_param_loc,read_from_param,run_number,save_parameters)
 
 
         
@@ -379,7 +400,6 @@ def main():
                               delta_t, stim_times, stim_sizes)
     I = PL.calculate_I(data[3], data[4], data[6], data[2], parameters['theta_N'],
                        parameters['theta_K'], parameters['k'])
-
 
     outputs = np.concatenate([data,I.reshape(1,-1)])
 
