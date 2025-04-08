@@ -1,14 +1,14 @@
 """
 csv is the default I/O format.
 
-I view this file as a debugging tool and a means to quickly explore some outputs
+This file is like a debugging tool and a means to quickly explore some outputs
 before writing the main plotting code in generate_figures.py.
 
-This file allows the use of terminal flags, which are not only more user-friendly,
-but directly compatible with running on the cluster.
+This file allows the use of terminal flags, which are not only more
+user-friendly, but directly compatible with running simulations on
+the cluster.
 
 I'll work on getting this file to act like the original sim_V2.py.
-
 """
 
 import matplotlib.pyplot as plt
@@ -50,7 +50,8 @@ def load_hyper_parameters_(read_from_hyper_loc):
                 value = False
             else:
                 if key == 'runs':
-                    value = int(value)      # 'runs' specifically needs to be an int
+                    # 'runs' must be int
+                    value = int(value)
                 else:
                     try:
                         value = float(value)
@@ -284,7 +285,6 @@ def main():
     args = parser.parse_args()
     
     run_number = 'chronic_1'                # used in file names, doesn't have to be a number
-    #model = 3                               # 2 - model 2 (previous, no MDSCs), 3 - model 3 (MDSCs)
     output_to_csv = args.save_solution
 
     save_init_states = args.save_init_states # save initial conditions to .csv
@@ -298,14 +298,17 @@ def main():
     print(args)
     print(save_init_states)
 
-    default_hyp = get_default_hyp()
-    default_inits = get_default_inits()    
-    default_params = get_default_params() 
+    #default_hyp = get_default_hyp()
+    #default_inits = get_default_inits()    
+    #default_params = get_default_params() 
     
 
-    read_from_hyper_loc = Path.cwd() / 'presets' / 'hyper_preset_{}.csv'.format(run_number)         # .csv containing hyperparameters to read from, put the path here
-    read_from_param_loc = Path.cwd() / 'presets' / 'parameter_preset_{}.csv'.format(run_number)        # .csv containing model paramaters to read from, put the path here
-    read_from_init_loc = Path.cwd() / 'presets' / 'init_val_preset_{}.csv'.format(run_number)         # .csv containing model initial values to read from, put the path here
+    # .csv containing hyperparameters to read from, put the path here
+    read_from_hyper_loc = Path.cwd() / 'presets' / 'hyper_preset_{}.csv'.format(run_number)
+    # .csv containing model paramaters to read from, put the path here
+    read_from_param_loc = Path.cwd() / 'presets' / 'parameter_preset_{}.csv'.format(run_number)
+    # .csv containing model initial values to read from, put the path here
+    read_from_init_loc = Path.cwd() / 'presets' / 'init_val_preset_{}.csv'.format(run_number)
 
     # the following arguments are used to input artifical quiescent HSPCs, not included in csv
     #################################### hyperparameters here    
