@@ -8,12 +8,14 @@ import project_library as PL
 from M3_beta import beta_model_3
 
 # system modules
-import os
+import os, sys
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import matplotlib
 from pathlib import Path
+import pandas as pd
+
 
 
 #### set up LaTeX for plots.
@@ -30,14 +32,16 @@ preamble = (r'\usepackage{amsmath}'
 matplotlib.rcParams['text.latex.preamble'] = preamble
 fontsize = 12
 
+
+
 def example():
 
     # Run(s)
     # ----------------------------------------------------------
 
-    read_from_hyper = False
-    read_from_param = False
-    read_from_init = False
+    read_from_hyper = True
+    read_from_param = True
+    read_from_init = True
 
     save_init_states = False
     save_parameters = False
@@ -56,6 +60,31 @@ def example():
     parameters = sv2.get_parameters(read_from_param_loc,read_from_param,
                                     run_number,save_parameters)
 
+    print(hyp)
+
+    
+    delta_t = hyp['delta_t']
+    t_final = hyp['t_final']
+    delayed_infection = hyp['delayed_infection']
+    t_infection_start = hyp['t_infection_start']
+    t_infection_end = hyp['t_infection_end']
+    
+    nosocomial_size = hyp['nosocomial_size']
+    nosocomial_start = hyp['nosocomial_start']
+    nosocomial_end = hyp['nosocomial_end']    
+
+    HSPC_boost = hyp['HSPC_boost']
+    HSPC_default = hyp['HSPC_default']
+    HSPC_increment = hyp['HSPC_increment']
+    HSPC_boost_time = hyp['HSPC_boost_time']
+
+    SCSF_boost = hyp['SCSF_boost']
+    SCSF_default = hyp['SCSF_default']
+    SCSF_increment = hyp['SCSF_increment']
+    SCSF_boost_time = hyp['SCSF_boost_time']
+
+
+    
     init_state = [
         init_dict['HQ'],
         init_dict['HM'],
@@ -71,38 +100,31 @@ def example():
         init_dict['MF']
     ]
 
-    delta_t = hyp['delta_t']
-    t_final = hyp['t_final']
-    delayed_infection = hyp['delayed_infection']
-    t_infection_start = hyp['t_infection_start']
-    t_infection_end = hyp['t_infection_end']
-    
-    path_size_default = hyp['path_size_default']
-    nosocomial_size = hyp['nosocomial_size']
-    nosocomial_start = hyp['nosocomial_start']
-    nosocomial_end = hyp['nosocomial_end']
+
+    #data = pd.read_csv('your_file.csv')
+    #print(data)
+
     path_increment = hyp['path_increment']
+    path_size_default = hyp['path_size_default']
 
-    HSPC_boost = hyp['HSPC_boost']
-    HSPC_default = hyp['HSPC_default']
-    HSPC_increment = hyp['HSPC_increment']
-    HSPC_boost_time = hyp['HSPC_boost_time']
+    outputs = []
+    outputs_t = []
 
-    SCSF_boost = hyp['SCSF_boost']
-    SCSF_default = hyp['SCSF_default']
-    SCSF_increment = hyp['SCSF_increment']
-    SCSF_boost_time = hyp['SCSF_boost_time']
+    for i in range(10):
+        
+        stim_times = [100]
+        #stim_sizes = [path_size_default+i*path_increment]
+        stim_sizes = [100+i*path_increment]
 
-    stim_times = [100]
-    stim_sizes = [2000]
+        t,data = PL.lin_sim_scipy(beta_model_3, parameters, init_state, t_final,
+                                  delta_t, stim_times, stim_sizes)
 
-    t,data = PL.lin_sim_scipy(beta_model_3, parameters, init_state, t_final,
-                              delta_t, stim_times, stim_sizes)
-    
-    I = PL.calculate_I(data[3], data[4], data[6], data[2], parameters['theta_N'],
-                       parameters['theta_K'], parameters['k'])
+        I = PL.calculate_I(data[3], data[4], data[6], data[2], parameters['theta_N'],
+                           parameters['theta_K'], parameters['k'])
 
-    outputs = np.concatenate([data,I.reshape(1,-1)])
+        data_I = np.concatenate([t.reshape(1,-1),data,I.reshape(1,-1)])
+
+        outputs.append(data_I)
 
 
     # Plot
@@ -128,11 +150,12 @@ def example():
     ]
 
 
-    for i,out in enumerate(outputs[:-1]):
-        axs1[i].plot(t, out)
-        axs1[i].set_title(titles[i])
 
-    #axs2.plot(I)
+    for i in range(10):
+        data_I = outputs[i]
+        for j, out in enumerate(data_I[1:4]):
+            axs1[j].plot(data_I[0], out, c=str(0.75*i/10),lw=1)
+            axs1[j].set_title(titles[j])
     
     plt.tight_layout()
     
