@@ -15,6 +15,10 @@ from matplotlib.gridspec import GridSpec
 import matplotlib
 from pathlib import Path
 import pandas as pd
+import matplotlib as mpl
+
+import string # for labels
+labels = list(string.ascii_uppercase)
 
 
 
@@ -48,9 +52,9 @@ def example():
     save_hyperparams = False
 
     run_number = 'chronic_1'
-    read_from_hyper_loc = Path.cwd() / 'presets' / 'hyper_preset_{}.csv'.format(run_number)
-    read_from_param_loc = Path.cwd() / 'presets' / 'parameter_preset_{}.csv'.format(run_number)
-    read_from_init_loc = Path.cwd() / 'presets' / 'init_val_preset_{}.csv'.format(run_number)
+    read_from_hyper_loc = Path.cwd() / 'figure_presets' / 'hyper_preset_{}.csv'.format(run_number)
+    read_from_param_loc = Path.cwd() / 'figure_presets' / 'parameter_preset_{}.csv'.format(run_number)
+    read_from_init_loc = Path.cwd() / 'figure_presets' / 'init_val_preset_{}.csv'.format(run_number)
     
 
     hyp = sv2.get_hyp(read_from_hyper_loc,read_from_hyper,
@@ -107,14 +111,19 @@ def example():
     path_increment = hyp['path_increment']
     path_size_default = hyp['path_size_default']
 
-    outputs = []
-    outputs_t = []
+    #pathogen_sizes = np.arange(path_size_default,path_increment)
+    n_stims = 5
+    pathogen_sizes = np.linspace(0,5000,n_stims)
 
-    for i in range(10):
+    outputs = []
+        
+
+
+    for i in range(n_stims):
         
         stim_times = [100]
         #stim_sizes = [path_size_default+i*path_increment]
-        stim_sizes = [100+i*path_increment]
+        stim_sizes = [pathogen_sizes[i]]
 
         t,data = PL.lin_sim_scipy(beta_model_3, parameters, init_state, t_final,
                                   delta_t, stim_times, stim_sizes)
@@ -130,7 +139,7 @@ def example():
     # Plot
     # ----------------------------------------------------------
 
-    fig,axs = plt.subplots(3,4,figsize=(8,7))
+    fig,axs = plt.subplots(3,3,figsize=(8,6))
     axs1 = np.asarray(axs).flatten()
 
     titles = [
@@ -150,13 +159,31 @@ def example():
     ]
 
 
+    cmap = mpl.colormaps['viridis']
+    colors = cmap(np.linspace(0, .9, n_stims))
 
-    for i in range(10):
+    for i in range(n_stims):
         data_I = outputs[i]
-        for j, out in enumerate(data_I[1:4]):
-            axs1[j].plot(data_I[0], out, c=str(0.75*i/10),lw=1)
-            axs1[j].set_title(titles[j])
-    
+        
+        for j, out in enumerate(data_I[1:1+9]):
+            #axs1[j].plot(data_I[0], out, c=str(1-0.85*i/10),lw=1)
+            if j == 0:
+                label = str(pathogen_sizes[i])
+
+            else:
+                label = ''
+            axs1[j].plot(data_I[0], out, c=colors[i],lw=1,label=label)
+            
+            
+
+            if i == 0:
+                axs1[j].set_title(labels[j],loc='left')
+                axs1[j].set_xlabel('$t$')
+                axs1[j].set_ylabel(titles[j])
+            
+            
+
+    axs1[0].legend(fontsize='small',labelspacing=0.3)
     plt.tight_layout()
     
     
