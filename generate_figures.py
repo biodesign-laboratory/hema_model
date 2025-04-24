@@ -40,6 +40,8 @@ fontsize = 12
 
 def example():
 
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+
     # Run(s)
     # ----------------------------------------------------------
 
@@ -121,9 +123,9 @@ def example():
 
     for i in range(n_stims):
         
-        stim_times = [100]
+        stim_times = [100,200]
         #stim_sizes = [path_size_default+i*path_increment]
-        stim_sizes = [pathogen_sizes[i]]
+        stim_sizes = [pathogen_sizes[i],pathogen_sizes[i]]
 
         t,data = PL.lin_sim_scipy(beta_model_3, parameters, init_state, t_final,
                                   delta_t, stim_times, stim_sizes)
@@ -166,22 +168,28 @@ def example():
         data_I = outputs[i]
         
         for j, out in enumerate(data_I[1:1+9]):
-            #axs1[j].plot(data_I[0], out, c=str(1-0.85*i/10),lw=1)
+            
             if j == 0:
                 label = str(pathogen_sizes[i])
 
             else:
                 label = ''
+                
             axs1[j].plot(data_I[0], out, c=colors[i],lw=1,label=label)
-            
-            
 
             if i == 0:
                 axs1[j].set_title(labels[j],loc='left')
                 axs1[j].set_xlabel('$t$')
                 axs1[j].set_ylabel(titles[j])
-            
-            
+
+                for stim_time in stim_times:
+                    axs1[j].axvline(x=stim_time,color='orange',lw=1,ls='--')
+
+
+    # make pathogen plot log scale 
+    axs1[2].set_yscale('log')
+    axs1[2].set_ylim((.1,1e8))
+
 
     axs1[0].legend(fontsize='small',labelspacing=0.3)
     plt.tight_layout()
