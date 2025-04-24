@@ -10,7 +10,7 @@ def linear_like(x, C, e):
 
     return C + (x-C)*(x**2/(x**2 + e))
 
-def beta_model_3(t, y, parameters):
+def beta_model_3(t, y, parameters, stim_time=None):
 
     '''
     This is model w/ MDSCs
