@@ -295,13 +295,7 @@ def main():
     read_from_param = args.read_param # whether model parameters should be loaded
     read_from_init = args.read_init  # whether initial values should be loaded
 
-    print(args)
-    print(save_init_states)
-
-    #default_hyp = get_default_hyp()
-    #default_inits = get_default_inits()    
-    #default_params = get_default_params() 
-    
+    print('Terminal flags:',args)
 
     # .csv containing hyperparameters to read from, put the path here
     read_from_hyper_loc = Path.cwd() / 'presets' / 'hyper_preset_{}.csv'.format(run_number)
@@ -313,7 +307,6 @@ def main():
     # the following arguments are used to input artifical quiescent HSPCs, not included in csv
     #################################### hyperparameters here    
 
-
     hyp = get_hyp(read_from_hyper_loc,read_from_hyper,run_number,save_hyperparams)
     
     delta_t = hyp['delta_t']
@@ -321,6 +314,7 @@ def main():
     delayed_infection = hyp['delayed_infection']
     t_infection_start = hyp['t_infection_start']
     t_infection_end = hyp['t_infection_end']
+    
     path_size_default = hyp['path_size_default']
     nosocomial_size = hyp['nosocomial_size']
     nosocomial_start = hyp['nosocomial_start']
@@ -395,12 +389,14 @@ def main():
 
     # ------- 1. Run ODE solver -------
 
-    stim_times = [100]
-    stim_sizes = [2000]
+    stim_times = [100,200]
+    stim_sizes = [2000,1000]
 
     start = time.time()
     t,data = PL.lin_sim_scipy(beta_model_3, parameters, init_state, t_final,
                               delta_t, stim_times, stim_sizes)
+
+    print(t.shape,data.shape)
     I = PL.calculate_I(data[3], data[4], data[6], data[2], parameters['theta_N'],
                        parameters['theta_K'], parameters['k'])
 

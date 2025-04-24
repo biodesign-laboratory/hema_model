@@ -1263,13 +1263,51 @@ def lin_sim_scipy(ODE_eq, parameters, y0, tf, dt, stim_times=[], stim_sizes=[]):
     solution
     '''
 
+
+    event_function.terminal = True
+    t = np.arange(0,tf,dt)
+    data = np.zeros([1,len(y0)])
+    times = np.zeros(1)
+
+    for i,stim_time in enumerate(stim_times):
+        
+        out = solve_ivp(ODE_eq,(t[0],t[-1]),y0,
+                        args=(parameters,stim_time),
+                        events=event_function)
+
+        # save values just before first pert.
+        data = np.concatenate([data,out.y.T])
+        times = np.concatenate([times,out.t])
+
+        # update inputs for next iteration
+        t = np.arange(out.t[-1]+dt,tf,dt)
+        y0 = out.y[:,-1]
+        y0[2] += stim_sizes[i]
+
+    out = solve_ivp(ODE_eq,(t[0],t[-1]),y0,
+                    args=(parameters,stim_time),
+                    events=event_function)
+
+    data = np.concatenate([data,out.y.T])
+    times = np.concatenate([times,out.t])
+
+    return times[1:],data.T[:,1:]
+
+    
+
+    """
+    # start terminal sim
     event_function.terminal = True
 
-    t = np.arange(0,tf,dt)
+    t = np.arange(0,tf,dt)    
     
     out = solve_ivp(ODE_eq,(t[0],t[-1]),y0,
                     args=(parameters,stim_times[0]),
                     events=event_function)
+
+    # terminate on first stim time
+
+    # restart sim
 
     y2 = out.y[:,-1]
     y2[2] += stim_sizes[0]
@@ -1280,9 +1318,12 @@ def lin_sim_scipy(ODE_eq, parameters, y0, tf, dt, stim_times=[], stim_sizes=[]):
                      args=(parameters,stim_times[0]),
                      method='LSODA')
 
+    # terminate on next stim time
+
     data = np.concatenate([out.y.T,out2.y.T])
     t = np.concatenate([out.t,out2.t])
     print(out.t[-1],out2.t[0],out2.t[-1])
 
     return t,data.T
             
+    """
