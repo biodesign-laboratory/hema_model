@@ -113,9 +113,11 @@ def example():
     path_increment = hyp['path_increment']
     path_size_default = hyp['path_size_default']
 
-    #pathogen_sizes = np.arange(path_size_default,path_increment)
     n_stims = 5
-    pathogen_sizes = np.linspace(0,5000,n_stims)
+
+    pathogen_sizes = np.arange(path_size_default,
+                               path_size_default + n_stims*path_increment,
+                               path_increment)
 
     outputs = []
         
@@ -188,7 +190,7 @@ def example():
 
     # make some plots on log scale
     axs1[2].set_yscale('log')
-    axs1[2].set_ylim((.1,1e8))
+    axs1[2].set_ylim((1.0,1e8))
 
     axs1[0].legend(fontsize='small',labelspacing=0.1)
     plt.tight_layout()
