@@ -186,12 +186,11 @@ def example():
                     axs1[j].axvline(x=stim_time,color='orange',lw=1,ls='--')
 
 
-    # make pathogen plot log scale 
+    # make some plots on log scale
     axs1[2].set_yscale('log')
     axs1[2].set_ylim((.1,1e8))
 
-
-    axs1[0].legend(fontsize='small',labelspacing=0.3)
+    axs1[0].legend(fontsize='small',labelspacing=0.1)
     plt.tight_layout()
     
     
