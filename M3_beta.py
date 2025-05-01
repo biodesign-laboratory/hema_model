@@ -94,6 +94,11 @@ def beta_model_3(t, y, parameters):
     C_UM = parameters['C_UM']                  # consumption rate of molecular factors by anti-inflammatory WBCs
     C_UP = parameters['C_UP']                  # consumption rate of pro-inflammatory cytokines by anti-inflammatory WBCs
 
+    # below parameters are new for proliferation rate update (see update 5/1 on notion)
+    gamma = parameters['gamma']                # base proliferation rate of quiescent HSPCs
+    temp_par1 = parameters['temp_par1']
+    temp_par2 = parameters['temp_par2']
+
 
 
     # ----------- 2. Load variable values --------------------
@@ -128,7 +133,8 @@ def beta_model_3(t, y, parameters):
 
     beta = I_t/(I_crit + I_t)                              # proportion of differentiating proliferating HSPCs asymmetrically differentiating (1 parent HSPC -> 2 daughter WBCs)
 
-    eta_Q = (alpha*I_H) * ((P_t * HQ_t) / ((alpha*I_H)*HQ_t + P_t))    # currently used term
+    # eta_Q = (alpha*I_H) * ((P_t * HQ_t) / ((alpha*I_H)*HQ_t + P_t))    # currently used term
+    eta_Q = (alpha*I_H) * ((P_t * HQ_t) / ((alpha*I_H)*HQ_t + P_t))
 
     downregulate_S = (tau_Q*P_t + tau_U*A_t + k_sn*N_t)*psi*S_t / (tau_Q*P_t + tau_U*A_t + k_sn*N_t + psi*S_t)      # controls number of S cells lost due to interaction with P, A, or N
     I_S = tau_Q*P_t*amp_P_by_N*amp_P_by_K + tau_U*A_t*amp_A_by_K + k_sn*N_t
@@ -142,11 +148,13 @@ def beta_model_3(t, y, parameters):
 
     dHM_dt = eta_Q - D_I*beta - dH*HM_t
 
-    dHQ_dt = (2*HQ_t*(1 - (k_H*HQ_t)/linear_like(SCSF_t, 0.1, 0.00001))) - eta_Q
+    # dHQ_dt = (gamma*HQ_t*(1 - (k_H*HQ_t)/linear_like(SCSF_t, 0.1, 0.00001))) - eta_Q
+    dHQ_dt = ((gamma + (I_crit / (I_t + temp_par2))*(temp_par1 - gamma))*HQ_t*(1 - (k_H*HQ_t)/linear_like(SCSF_t, 0.1, 0.00001))) - eta_Q
 
-    dS_dt = (D_I*(1 - beta) + 2*D_I*beta) - downregulate_S
+    dS_dt = (D_I*(1 - beta) + 2*D_I*beta) - downregulate_S - d_S*S_t
 
-    dQ_dt = (omega) * downregulate_S * (tau_Q*P_t*amp_P_by_N*amp_P_by_K) / (I_S) * ((1/2*MF_t) / (1/2*MF_t + C_QM*Q_t + C_MDM*MDSC_t + C_UM*U_t)) - d_Q*(1 - 0.5*I_t/(0.7 + I_t))*Q_t      # Why multiply by 1/2? Because S + P -> Q AND MDSC, so I simplify here and assume half become Q, half become MDSCs
+    dQ_dt = (omega) * downregulate_S * (tau_Q*P_t*amp_P_by_N*amp_P_by_K) / (I_S) * ((1/2*MF_t) / (1/2*MF_t + C_QM*Q_t + C_MDM*MDSC_t + C_UM*U_t)) - d_Q*(1 - 0.5*I_t/(0.7 + I_t))*Q_t      
+
     # dQ_dt = (3/4) * downregulate_S * (tau_Q*P_t) / (I_S) * ((1/2*MF_t) / (1/2*MF_t + C_QM*Q_t + C_MDM*MDSC_t + C_UM*U_t)) - d_Q*(1 - 0.5*I_t/(0.7 + I_t))*Q_t           # w/out amp functions
 
     dU_dt = downregulate_S * (tau_U*A_t*amp_A_by_K) / (I_S) - d_U*U_t
@@ -159,8 +167,8 @@ def beta_model_3(t, y, parameters):
     dA_dt = S_AM*MDSC_t + S_AH*HM_t + S_AU*U_t  + S_AS*S_t - d_A*A_t
     
     # dK_dt = S_KD*((k_sn*N_t*(S_t/(k_sn*N_t+S_t)))*(k_sn*N_t / I_S)) + S_KMD*MDSC_t*((P_t + A_t + N_t)/(1/2*MDSC_t + P_t + A_t + N_t)) + S_KQ*Q_t - (R_KU*U_t*K_t / (R_KU*U_t + K_t))
-    dK_dt = beta_N*N_t + S_KD*((k_sn*N_t*(S_t/(k_sn*N_t+S_t)))*(k_sn*N_t / I_S)) + S_KMD*MDSC_t*((P_t + A_t + N_t)/(1/2*MDSC_t + P_t + A_t + N_t)) + S_KQ*Q_t - (R_KU*U_t*K_t / (R_KU*U_t + K_t))
-    # dK_dt = beta_N*N_t + S_KD*((k_sn*N_t*(S_t/(k_sn*N_t+S_t)))*(k_sn*N_t / I_S) + eta_Q*(beta_N*N_t / (beta_N*N_t + P_t))) + S_KMD*MDSC_t*((P_t + A_t + N_t)/(1/2*MDSC_t + P_t + A_t + N_t)) + S_KQ*Q_t - (R_KU*U_t*K_t / (R_KU*U_t + K_t))
+    # dK_dt = beta_N*N_t + S_KD*((k_sn*N_t*(S_t/(k_sn*N_t+S_t)))*(k_sn*N_t / I_S)) + S_KMD*MDSC_t*((P_t + A_t + N_t)/(1/2*MDSC_t + P_t + A_t + N_t)) + S_KQ*Q_t - (R_KU*U_t*K_t / (R_KU*U_t + K_t)) # <- current
+    dK_dt = beta_N*N_t + S_KD*(downregulate_S*(k_sn*N_t / I_S)) + S_KMD*MDSC_t*((P_t + A_t + N_t)/(1/2*MDSC_t + P_t + A_t + N_t)) + S_KQ*Q_t - (R_KU*U_t*K_t / (R_KU*U_t + K_t))
 
     dN_dt = g_N*N_t*(1-(N_t/N_oo)) - (k_nq*Q_t + k_ns*S_t + k_nm*MDSC_t )*(N_t/(N_half + N_t))
 
