@@ -96,8 +96,8 @@ def beta_model_3(t, y, parameters):
 
     # below parameters are new for proliferation rate update (see update 5/1 on notion)
     gamma = parameters['gamma']                # base proliferation rate of quiescent HSPCs
-    temp_par1 = parameters['temp_par1']
-    temp_par2 = parameters['temp_par2']
+    delta = parameters['delta']
+    H_crit = parameters['H_crit']
 
 
 
@@ -149,7 +149,7 @@ def beta_model_3(t, y, parameters):
     dHM_dt = eta_Q - D_I*beta - dH*HM_t
 
     # dHQ_dt = (gamma*HQ_t*(1 - (k_H*HQ_t)/linear_like(SCSF_t, 0.1, 0.00001))) - eta_Q
-    dHQ_dt = ((gamma + (I_crit / (I_t + temp_par2))*(temp_par1 - gamma))*HQ_t*(1 - (k_H*HQ_t)/linear_like(SCSF_t, 0.1, 0.00001))) - eta_Q
+    dHQ_dt = ((gamma + (I_crit / (I_t + H_crit))*(delta - gamma))*HQ_t*(1 - (k_H*HQ_t)/linear_like(SCSF_t, 0.1, 0.00001))) - eta_Q
 
     dS_dt = (D_I*(1 - beta) + 2*D_I*beta) - downregulate_S - d_S*S_t
 
