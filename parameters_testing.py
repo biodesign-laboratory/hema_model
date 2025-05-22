@@ -50,12 +50,12 @@ for key in key_names_3:
     for h in range(experiments):
         gv.parameters_3_global[key] = parameter_range[h]
         for i in range(runs):
-            sol = solve_ivp(PL.model_3_derivatives, [0, t_final], init_state_3[:, i], args = ([gv.parameters_3_global]))
+            sol = solve_ivp(PL.beta_model_3, [0, t_final], init_state_3[:, i], args = ([gv.parameters_3_global]))
             print(f"Run {i} output successfully computed")
             sol_total[h][i] = sol
 
         # ---- plot the simulations and save output to png's -------
-        path = Path.cwd() / 'Experiments_2'
+        path = Path.cwd() / 'Experiments_1'
         
         if not Path.exists(path):
             Path.mkdir(path)
@@ -142,7 +142,7 @@ for key in key_names_3:
         fig2.savefig(path / f'exp_{h}_P_A_SCSF.png', dpi=300)
         fig3.savefig(path / f'exp_{h}_K_Q_S.png', dpi=300)
         fig4.savefig(path / f'exp_{h}_U_MDSC_MF.png', dpi=300)
-        print(f"Experiment {h} successfully saved: {end_key - start_key}")
+        #print(f"Experiment {h} successfully saved: {end_key - start_key}")
 
         for i in range(3):
             axs1[i].clear()

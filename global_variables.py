@@ -45,7 +45,11 @@ parameters_3_global = {
         'S_MF' : 1000,
         'omega' : 0.6,
         'C_UP' : 2,
-        'alpha': 1/3
+        'alpha': 1/3,
+        'gamma' : 0.0005,  
+        'delta' : 0.2,
+        'H_crit' : 0.4,
+        'beta_N' :  10**-3          
 
     }
 
@@ -94,7 +98,11 @@ parameters_3_global_bk = {
         'S_MF' : 1000,
         'omega' : 0.6,
         'C_UP' : 2,
-        'alpha': 1/3
+        'alpha': 1/3,
+        'gamma' : 0.0005,  
+        'delta' : 0.2,
+        'H_crit' : 0.4,
+        'beta_N' :  10**-3   
 
     }
 
@@ -142,5 +150,9 @@ key_names_3 = [
     'S_MF',
     'omega',
     'C_UP',
-    'alpha'
+    'alpha',
+    'gamma', 
+    'delta',
+    'H_crit',
+    'beta_N'
 ]
