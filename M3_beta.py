@@ -10,7 +10,7 @@ def linear_like(x, C, e):
 
     return C + (x-C)*(x**2/(x**2 + e))
 
-def beta_model_3(t, y, parameters):
+def beta_model_3(t, y, parameters, stim_time=None):
 
     '''
     This is model w/ MDSCs
@@ -149,7 +149,7 @@ def beta_model_3(t, y, parameters):
     dHM_dt = eta_Q - D_I*beta - dH*HM_t
 
     # dHQ_dt = (gamma*HQ_t*(1 - (k_H*HQ_t)/linear_like(SCSF_t, 0.1, 0.00001))) - eta_Q
-    dHQ_dt = ((gamma + (I_crit / (I_t + H_crit))*(delta - gamma))*HQ_t*(1 - (k_H*HQ_t)/linear_like(SCSF_t, 0.1, 0.00001))) - eta_Q
+    dHQ_dt = ((gamma + (I_t / (I_t + H_crit))*(delta - gamma))*HQ_t*(1 - (k_H*HQ_t)/linear_like(SCSF_t, 0.1, 0.00001))) - eta_Q
 
     dS_dt = (D_I*(1 - beta) + 2*D_I*beta) - downregulate_S - d_S*S_t
 
