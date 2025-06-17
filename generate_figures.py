@@ -117,7 +117,7 @@ def example():
 
     pathogen_sizes = np.arange(path_size_default,
                                path_size_default + n_stims*path_increment,
-                               path_increment)
+                               path_increment)/1.1
 
     outputs = []
         
@@ -172,7 +172,7 @@ def example():
         for j, out in enumerate(data_I[1:1+9]):
             
             if j == 0:
-                label = str(pathogen_sizes[i])
+                label = str(int(pathogen_sizes[i]))
 
             else:
                 label = ''
