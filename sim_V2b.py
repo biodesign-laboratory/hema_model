@@ -1,5 +1,13 @@
 """
 csv is the default I/O format.
+
+This file is like a debugging tool and a means to quickly explore some outputs
+before writing the main plotting code in generate_figures.py.
+
+This file allows the use of terminal flags, which are not only more
+user-friendly, but directly compatible with running simulations on
+the cluster.
+
 """
 
 import matplotlib.pyplot as plt
@@ -41,7 +49,8 @@ def load_hyper_parameters_(read_from_hyper_loc):
                 value = False
             else:
                 if key == 'runs':
-                    value = int(value)      # 'runs' specifically needs to be an int
+                    # 'runs' must be int
+                    value = int(value)
                 else:
                     try:
                         value = float(value)
@@ -114,15 +123,15 @@ def save_params_(param_fname,parameters):
 def get_default_hyp():
     default_hyp = {
         'delta_t' : 0.01,
-        't_final' : 400,
+        't_final' : 672,
         'delayed_infection' : False,
         't_infection_start' : 100,
         't_infection_end' : 200,
-        'path_size_default' : 40_000,
-        'nosocomial_size' : 10_000,
+        'path_size_default' : 0,
+        'nosocomial_size' : 0,
         'nosocomial_start' : 250,
         'nosocomial_end' : 350,
-        'path_increment' : 2000,
+        'path_increment' : 6000,
         'HSPC_boost' : False,
         'HSPC_default' : 0,
         'HSPC_increment' : 5_000,
@@ -130,25 +139,26 @@ def get_default_hyp():
         'SCSF_boost' : False,
         'SCSF_default' : 0,
         'SCSF_increment' : 0,
-        'SCSF_boost_time' : 110
+        'SCSF_boost_time' : 110,
+        'runs': 10
     }
 
     return default_hyp
 
 def get_default_inits():
     default_inits = {
-        'HQ':10_000,
-        'HM':5_000,
-        'N':0,
-        'P':10_000,
-        'A':10_000,
+        'HST':20_000,
+        'MPP':5_000,
+        'N':1,
+        'P':100,
+        'A':100,
         'SCSF':10_000,
         'K':1,
-        'Q':500,
-        'S':500,
-        'U':500,
+        'Q':100,
+        'S':100,
+        'U':100,
         'MDSC':1,
-        'MF':5_000
+        'EN':1_000
     }
     return default_inits
 
@@ -199,9 +209,65 @@ def get_default_params():
         'omega' : 0.8,
         'C_UP' : 2,
         'alpha': 1/3,
-        'beta_N': 10**-3
+        'beta_N': 10**-3,
+        'gamma': 0.0005,
+        'delta': 0.2,
+        'H_crit': 0.2
     }
     return default_params
+
+
+def get_parameters(read_from_param_loc,read_from_param,run_number,save_parameters):
+    if not(os.path.isfile(read_from_param_loc)) or not(read_from_param):
+        # set model parameters manually
+
+        parameters = get_default_params()
+
+        if save_parameters:
+            param_fname = PATH_PRESETS / f'parameter_preset_{run_number}.csv'
+            save_params_(param_fname,parameters)
+
+    else:           # set model parameters by reading from .csv
+        # Warning: if .csv key-values do not match selected model format, error in sim will occur
+        parameters = load_params_(read_from_param_loc)
+
+    return parameters
+
+
+def get_init_states(read_from_init_loc,read_from_init,run_number,save_init_states):
+    if not(os.path.isfile(read_from_init_loc)) or not(read_from_init):
+        # set initial values manually
+        # this dict will be saved as a .csv if save_init_states = True
+        init_dict = get_default_inits()
+
+        if save_init_states:        # save initial values to a .csv preset
+            init_fname = PATH_PRESETS / f'init_val_preset_{run_number}.csv'
+            save_init_states_(init_fname,init_dict)
+
+    else:               # set initial values by reading from .csv
+
+        # Warning: if .csv key-values do not match selected model format, error in sim will occur
+        init_dict = load_init_states_(read_from_init_loc)
+
+    return init_dict
+
+
+def get_hyp(read_from_hyper_loc,read_from_hyper,run_number,save_hyperparams,aseptic):
+    if not(os.path.isfile(read_from_hyper_loc)) or not(read_from_hyper):
+        hyp = get_default_hyp()
+        if save_hyperparams:
+            # file name and location to save to
+            hyper_fname = PATH_PRESETS / f'hyper_preset_{run_number}.csv'
+            save_hyper_parameters_(hyper_fname,hyp)
+
+    else:           # set hyperparameters by reading from a .csv
+        if not aseptic:
+            hyp = load_hyper_parameters_(read_from_hyper_loc)
+        else:
+            hyp = PL.load_hyper_aseptic(read_from_hyper_loc)
+
+    return hyp
+
 
 def main():
     
@@ -224,8 +290,7 @@ def main():
 
     args = parser.parse_args()
     
-    run_number = 'chronic_1'                # used in file names, doesn't have to be a number
-    #model = 3                               # 2 - model 2 (previous, no MDSCs), 3 - model 3 (MDSCs)
+    run_number = 'recovery_septic'                # used in file names, doesn't have to be a number
     output_to_csv = args.save_solution
 
     save_init_states = args.save_init_states # save initial conditions to .csv
@@ -236,35 +301,27 @@ def main():
     read_from_param = args.read_param # whether model parameters should be loaded
     read_from_init = args.read_init  # whether initial values should be loaded
 
-    print(args)
-    print(save_init_states)
+    print('Terminal flags:',args)
 
-    default_hyp = get_default_hyp()
-    default_inits = get_default_inits()    
-    default_params = get_default_params() 
-    
-
-    read_from_hyper_loc = Path.cwd() / 'presets' / 'hyper_preset_{}.csv'.format(run_number)         # .csv containing hyperparameters to read from, put the path here
-    read_from_param_loc = Path.cwd() / 'presets' / 'parameter_preset_{}.csv'.format(run_number)        # .csv containing model paramaters to read from, put the path here
-    read_from_init_loc = Path.cwd() / 'presets' / 'init_val_preset_{}.csv'.format(run_number)         # .csv containing model initial values to read from, put the path here
+    # .csv containing hyperparameters to read from, put the path here
+    read_from_hyper_loc = Path.cwd() / 'presets' / 'hyper_preset_{}.csv'.format(run_number)
+    # .csv containing model paramaters to read from, put the path here
+    read_from_param_loc = Path.cwd() / 'presets' / 'parameter_preset_{}.csv'.format(run_number)
+    # .csv containing model initial values to read from, put the path here
+    read_from_init_loc = Path.cwd() / 'presets' / 'init_val_preset_{}.csv'.format(run_number)
 
     # the following arguments are used to input artifical quiescent HSPCs, not included in csv
     #################################### hyperparameters here    
-    if not(os.path.isfile(read_from_hyper_loc)) or not(read_from_hyper):
-        hyp = default_hyp
-        if save_hyperparams:
-            # file name and location to save to
-            hyper_fname = PATH_PRESETS / f'hyper_preset_{run_number}.csv'
-            save_hyper_parameters_(hyper_fname,hyp)
 
-    else:           # set hyperparameters by reading from a .csv
-        hyp = load_hyper_parameters_(read_from_hyper_loc)
-
+    hyp = get_hyp(read_from_hyper_loc,read_from_hyper,run_number,save_hyperparams)
+    
+    runs = hyp['runs']
     delta_t = hyp['delta_t']
     t_final = hyp['t_final']
     delayed_infection = hyp['delayed_infection']
     t_infection_start = hyp['t_infection_start']
     t_infection_end = hyp['t_infection_end']
+    
     path_size_default = hyp['path_size_default']
     nosocomial_size = hyp['nosocomial_size']
     nosocomial_start = hyp['nosocomial_start']
@@ -284,24 +341,12 @@ def main():
     #timesteps = np.arange(stop=t_final, step=delta_t)
 
     #################################### initial states here
-    
-    if not(os.path.isfile(read_from_init_loc)) or not(read_from_init):
-        # set initial values manually
-        # this dict will be saved as a .csv if save_init_states = True
-        init_dict = default_inits
 
-        if save_init_states:        # save initial values to a .csv preset
-            init_fname = PATH_PRESETS / f'init_val_preset_{run_number}.csv'
-            save_init_states_(init_fname,init_dict)
-
-    else:               # set initial values by reading from .csv
-
-        # Warning: if .csv key-values do not match selected model format, error in sim will occur
-        init_dict = load_init_states_(read_from_init_loc)
+    init_dict = get_init_states(read_from_init_loc,read_from_init,run_number,save_init_states)
 
     init_state = [
-        init_dict['HQ'],
-        init_dict['HM'],
+        init_dict['HST'],
+        init_dict['MPP'],
         init_dict['N'],
         init_dict['P'],
         init_dict['A'],
@@ -311,22 +356,11 @@ def main():
         init_dict['S'],
         init_dict['U'],
         init_dict['MDSC'],
-        init_dict['MF']
+        init_dict['EN']
     ]
 
     #################################### parameters here
-    if not(os.path.isfile(read_from_param_loc)) or not(read_from_param):
-        # set model parameters manually
-
-        parameters = default_params
-
-        if save_parameters:
-            param_fname = PATH_PRESETS / f'parameter_preset_{run_number}.csv'
-            save_params_(param_fname,parameters)
-
-    else:           # set model parameters by reading from .csv
-        # Warning: if .csv key-values do not match selected model format, error in sim will occur
-        parameters = load_params_(read_from_param_loc)
+    parameters = get_parameters(read_from_param_loc,read_from_param,run_number,save_parameters)
 
 
         
@@ -362,19 +396,25 @@ def main():
 
     # ------- 1. Run ODE solver -------
 
-    stim_times = [100]
-    stim_sizes = [2000]
+    init_infection_sizes = [path_size_default + path_increment*i for i in range(runs)]
+    stim_times = [[t_infection_start, nosocomial_start] for i in range(runs)]
+    stim_sizes_arr = [[init_infection_size, nosocomial_size] for init_infection_size in init_infection_sizes]
 
     start = time.time()
-    t,data = PL.lin_sim_scipy(beta_model_3, parameters, init_state, t_final,
-                              delta_t, stim_times, stim_sizes)
-    I = PL.calculate_I(data[3], data[4], data[6], data[2], parameters['theta_N'],
-                       parameters['theta_K'], parameters['k'])
+    print("Solving ODEs now")
 
+    for i in range(runs):       
 
-    outputs = np.concatenate([data,I.reshape(1,-1)])
+        t,data = PL.lin_sim_scipy(beta_model_3, parameters, init_state, t_final,
+                                delta_t, stim_times, stim_sizes_arr)
 
-    print(f"Run output successfully computed")
+        print(t.shape,data.shape)
+        I = PL.calculate_I(data[3], data[4], data[6], data[2], parameters['theta_N'],
+                        parameters['theta_K'], parameters['k'])
+
+        outputs = np.concatenate([data,I.reshape(1,-1)])
+
+        print(f"Run output {i+1} successfully computed")
     end = time.time()
     print(f'Execution successful. Time elapsed: {end-start}s')
 
@@ -398,8 +438,8 @@ def main():
         print("Saving outputs to .csv files now.")
         start = time.time()
 
-        df = pd.DataFrame(outputs[i].T, columns=['HQ', 'HM', 'N', 'P', 'A', 'SCSF', 'K', 'Q', 'S', 'U', 'MDSC', 'MF', 'I'], index=list(map(str, t)))
-        df.to_csv(path_e / f'SIM_{run_number}_{i}_output.csv')
+        df = pd.DataFrame(outputs.T, columns=['HQ', 'HM', 'N', 'P', 'A', 'SCSF', 'K', 'Q', 'S', 'U', 'MDSC', 'MF', 'I'], index=list(map(str, t)))
+        df.to_csv(path_e / f'SIM_{run_number}_output.csv')
         
         end = time.time()
         print(f"Outputs successfully saved to .csv's. Time elapsed: {end-start}s")
@@ -411,8 +451,8 @@ def main():
 
     # graph titles here
     titles = [
-        '$H_Q(t)$',
-        '$H_M(t)$',
+        '$H_{ST}(t)$',
+        '$MPP(t)$',
         '$N(t)$',
         '$P(t)$',
         '$A(t)$',
@@ -422,7 +462,7 @@ def main():
         '$S(t)$',
         '$U(t)$',
         '$MDSC(t)$',
-        '$MF(t)$', 
+        '$EN(t)$', 
         '$I(t)$'
     ]
 
