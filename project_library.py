@@ -1,9 +1,10 @@
-from scipy.integrate import solve_ivp
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from PIL import Image
 import os
+from scipy.integrate import solve_ivp
+import csv
 
 
 def linear_sim_hybrid(init_values, rates, timestep_size, TFinal, path_repeat_t, path_repeat_size):
@@ -501,7 +502,7 @@ def linear_sim_smooth(parameter_arr, init_value_arr, delta_t, t_final, pathogen_
     return output
 
 
-def merge_figures_grid(nRow, nCol, img_width, img_height, exp_num, order, o_names, p_names):
+def merge_figures_grid(nRow, nCol, img_width, img_height, exp_num, order, o_names, p_names, num=-1, directory=os.path.dirname(os.path.abspath(__file__))):
     '''
     ** template code, some lines will need to be modified as needed **
     Args:
@@ -513,6 +514,9 @@ def merge_figures_grid(nRow, nCol, img_width, img_height, exp_num, order, o_name
     order: Sensitivity analysis specific argument, specifies which order graphs are being combined (first, second, or total)
     o_names: Array containing the desired output names
     p_names: Array containing the desired parameter names
+    num: 
+        -1 : Will not append any number to end of filename, only one merged figure created;
+        else attached to end of filename; necessary if creating more than one merged figure for each parameter
 
     ====================
     Outputs:
@@ -523,7 +527,7 @@ def merge_figures_grid(nRow, nCol, img_width, img_height, exp_num, order, o_name
 
     relative_path_arr = np.empty(len(o_names), dtype=f'<U256')    # will contain paths to the images in the same order that the output names appear in o_names arg
 
-    script_dir = os.path.dirname(os.path.abspath(__file__))
+    script_dir = directory
 
     for param in path_titles:
 
@@ -559,10 +563,13 @@ def merge_figures_grid(nRow, nCol, img_width, img_height, exp_num, order, o_name
     # Save the collage image
         filepath = os.path.join(script_dir, f'Experiment_{exp_num}', f'{order}_order_merge')
         if not os.path.exists(filepath):
-            print('debug check')
+            #print('debug check')
             os.makedirs(filepath)
 
-        collage_image.save(os.path.join(filepath, f'{param}_merge_{order}.png'))
+        if num != -1:
+            collage_image.save(os.path.join(filepath, f'{param}_merge_{order}_{num}.png'))
+        else:
+            collage_image.save(os.path.join(filepath, f'{param}_merge_{order}.png'))
 
 
 def csv_to_figure(o_names, o_name_laTex, p_names, p_names_laTex, nTimesteps, init_time, nDatapoints, order, exp_num, filepath='default'):
@@ -577,7 +584,7 @@ def csv_to_figure(o_names, o_name_laTex, p_names, p_names_laTex, nTimesteps, ini
     exp_num: trial number
     filepath: OPTIONAL, string containing parent directory of all relevant data folders, 'default' arg sets path to relative path
 
-    WARNING: order='second' not fully implemented
+    WARNING: this function is specifically meant to be used with sobol script
     ==========================
     No output, generates time-series figures from given .csv files and stores them in predefined folder locations
     '''
@@ -655,6 +662,100 @@ def csv_to_figure(o_names, o_name_laTex, p_names, p_names_laTex, nTimesteps, ini
 
             plt.close(fig)
 
+def csv_to_figure_morris(o_names, o_name_laTex, p_names, p_names_laTex, nTimesteps, init_time, nDatapoints, order, exp_num, conf_int=False, filepath='default'):
+    '''
+    o_names: array containing strings of output names used for file paths
+    o_names_laTex: same as above but used for formatting matplotlib plot titles in laTex
+    p_names: array containing strings of input names used for file paths
+    p_names_laTex: same as above but used for formatting matplotlib plot titles in laTex
+    init_time: initial time
+    nDatapoints: number of data types (i.e. columns) to include from .csv
+    order: case-specific to sensitivity analysis
+    exp_num: trial number
+    conf_int: Whether plotting should include a confidence interval (csv must contain this data, else an error will occur)
+    filepath: OPTIONAL, string containing parent directory of all relevant data folders, 'default' arg sets path to relative path
+
+    WARNING: this function is specifically meant to be used with sobol script
+    ==========================
+    No output, generates time-series figures from given .csv files and stores them in predefined folder locations
+    '''
+    script_dir = ''
+    if filepath=='default':
+
+        script_dir = os.path.dirname(os.path.abspath(__file__))     # file path is relative to source code path
+
+    else:
+        script_dir = filepath
+
+    #print(f'Inside function call: {script_dir}')
+
+    nParam = len(p_names)
+
+    # ========== 1: Load data from csv's into useable format ==========
+
+    master_df = np.zeros((len(o_names), nTimesteps, nParam, nDatapoints))
+    # master_df: output -> SIs for all params sorted by time -> SIs sorted by param e.g. to access the sensitivity index of parameter 'z' in the timestep 'y' for output 'x', the index would be df[x, y, z, 1]
+
+    for i, str in enumerate(o_names):
+
+        SIs_per_timestep = np.zeros((nTimesteps, nParam, nDatapoints))
+
+        for t in np.arange(init_time, init_time + nTimesteps):
+
+            output_timestep_Si_data = pd.read_csv(os.path.join(script_dir, f'{str}_out', f'{order}', f'{order}_SI_{str}_{exp_num}_{t}.csv'), delimiter='\t')  # dataframe with 24 rows, 3 columns where rows=parameter, column0=param_name, column1=Si_index, and column2=SI_conf
+            if nDatapoints == 2:
+                output_timestep_Si_data = output_timestep_Si_data.iloc[:, [1, 2]]
+            else:
+                output_timestep_Si_data = output_timestep_Si_data.iloc[:, [1]]
+            SIs_per_timestep[t-init_time] = output_timestep_Si_data.to_numpy()
+            
+        master_df[i] = SIs_per_timestep
+
+    # =============== 2. Plot data =============================
+
+    '''moderate_cutoff = np.zeros(nTimesteps)+0.1
+    high_cutoff = np.zeros(nTimesteps)+0.3'''
+
+    titles = np.empty(len(p_names), dtype=f'<U256')
+    for i, p_name in enumerate(p_names_laTex):
+
+        titles[i] = f'{p_name}'
+
+    
+    filenames = np.empty(len(p_names), dtype=f'<U256')
+
+    for p, p_name in enumerate(p_names):
+        
+        filenames[p] = f'{p_name}_SI_{exp_num}_'
+
+    for i, out_name in enumerate(o_names):
+
+        for p, param_name in enumerate(p_names):
+
+            fig, axs = plt.subplots()
+
+            axs.plot(np.arange(init_time, init_time+nTimesteps), master_df[i, :, p, 0], 'k')  # SI indices
+            '''axs.plot(np.arange(init_time, init_time+nTimesteps), moderate_cutoff, 'y--', label='Mod. Influential lower bound')    # Lower bound on range to be considered moderately influential
+            axs.plot(np.arange(init_time, init_time+nTimesteps), high_cutoff, 'g--', label='Highly Influential lower bound')        # Lower bound on range to be considered highly influential'''
+            #axs.plot(np.arange(init_time, init_time+nTimesteps), np.zeros(nTimesteps), 'k--')
+
+            if conf_int:
+                axs.fill_between(np.arange(init_time, init_time+nTimesteps), master_df[i, :, p, 0]-master_df[i, :, p, 1], master_df[i, :, p, 0]+master_df[i, :, p, 1], color='k', alpha=.15, label='$95\%$ Confidence Interval')
+                axs.legend(loc = 'upper right')
+
+            axs.set_xlabel('Time ($t$)')
+            axs.set_ylabel('Sensitivity Index')
+            #axs.set_ylim(ymin=-0.05, ymax=1.05)
+            axs.set_title(f'${titles[p]}$' + " Sensitivity Index for Output " + f'${o_name_laTex[i]}(t)$')
+
+            path = os.path.join(script_dir, f'{out_name}_out', f'{order}_figs')
+
+            if not os.path.exists(path):
+                os.makedirs(path)
+
+            fig.savefig(os.path.join(path, f'{param_name}_SI_{exp_num}_{out_name}.png'))
+
+            plt.close(fig)
 
 def calculate_derivatives_hybrid(values):
 
@@ -1080,19 +1181,19 @@ def model_2_derivatives(t, y, parameters):
     damp_A_by_N = theta_N**k/(theta_N**k + N_t**k) + 0.25   # dampens the anti-inflammatory signals by pathogen concentration
     amp_A_by_K = 0.75 * (K_t)/(theta_K + K_t) + 1           # amplifies the anti-inflammatory signals by tissue damage
 
-    I_t = (P_t * amp_P_by_N * amp_P_by_K) / ((A_t * damp_A_by_N * amp_A_by_K) + (P_t * amp_P_by_N * amp_P_by_K))
+    I_t = (P_t * amp_P_by_N * amp_P_by_K) / ((A_t * amp_A_by_K) + (P_t * amp_P_by_N * amp_P_by_K))
 
     #D_I = (HM_t*(1/5)*P_t)/(HM_t + (1/5)*P_t) * I_t              # proportion of proliferating HSPCs differentiating (either symmetric or asymmetric)
     #D_I = (HM_t*(1/5)*P_t)/((1/5)*HM_t + P_t) * I_t
-    D_I = (HM_t*(1/5)*P_t)/((1/5)*HM_t + P_t)
+    D_I = (HM_t*(1/3*I_t)*P_t)/((1/3*I_t)*HM_t + P_t)
 
     beta = I_t/(I_crit + I_t)                              # proportion of differentiating proliferating HSPCs asymmetrically differentiating (1 parent HSPC -> 2 daughter WBCs)
 
     #eta_Q = (1/5) * ((HQ_t * (P_t)) / ((1/5)*HQ_t + P_t)) * (I_t/(I_crit + I_t))
-    eta_Q = (I_t) * ((HQ_t * (P_t)) / ((I_t)*HQ_t + P_t))
+    eta_Q = (1/3*I_t) * ((HQ_t * (P_t)) / ((1/3*I_t)*HQ_t + P_t))
 
     #eta_M = (1/5) * ((HM_t * A_t) / (1/5*HM_t + A_t)) * ((1/I_t)/(A_crit + (1/I_t)))
-    eta_M = (1-I_t) * ((HM_t * A_t) / ((1-I_t)*HM_t + A_t))
+    eta_M = 1/3*(1-I_t) * ((HM_t * A_t) / (1/3*(1-I_t)*HM_t + A_t))
 
     #print(f'eta_M: {eta_M}')
     # IMPORTANT: These next two functions control how the stable leukocytes compartment (S) upregulate the immuno-suppressive and active compartments (U, Q respectively); relates to our research question
@@ -1100,10 +1201,11 @@ def model_2_derivatives(t, y, parameters):
     '''D_Q = (1/3)*tau_Q * (I_t)/(I_crit + I_t)
     D_U = (1/3)*tau_U * (1-I_t) / (A_crit + (1 - I_t))'''
 
-    # ----------- 3b. debug ------------------
     # new terms to replace D_Q, D_U, and N + S -> __ in dS/dt
     downregulate_S = (tau_Q*P_t + tau_U*A_t + k_sn*N_t)*psi*S_t / (tau_Q*P_t + tau_U*A_t + k_sn*N_t + psi*S_t)
     I_S = tau_Q*P_t*amp_P_by_N*amp_P_by_K + tau_U*A_t*amp_A_by_K*damp_A_by_N + k_sn*N_t
+
+    # ----------- 3b. debug ------------------
 
 
     # ----------- 4. Calculate derivatives --------------------
@@ -1123,7 +1225,7 @@ def model_2_derivatives(t, y, parameters):
     dS_dt = (D_I*(1 - beta) + 2*D_I*beta) - downregulate_S      # new term
 
     # dQ_dt = D_Q*S_t - d_Q*(1 - 0.5*I_t/(2 + I_t))*Q_t
-    dQ_dt = downregulate_S * (tau_Q*P_t*amp_P_by_N*amp_P_by_K) / (I_S) - d_Q*(1 - 0.5*I_t/(2 + I_t))*Q_t      # new term
+    dQ_dt = downregulate_S * (tau_Q*P_t*amp_P_by_N*amp_P_by_K) / (I_S) - d_Q*(1 - 0.5*I_t/(0.7 + I_t))*Q_t      # new term
 
     # dU_dt = D_U*S_t - d_U*U_t
     dU_dt = downregulate_S * (tau_U*A_t*amp_A_by_K*damp_A_by_N) / (I_S) - d_U*U_t         # new term
@@ -1143,7 +1245,7 @@ def model_2_derivatives(t, y, parameters):
     return np.array([dHQ_dt, dHM_dt, dN_dt, dP_dt, dA_dt, dSCSF_dt, dK_dt, dQ_dt, dS_dt, dU_dt])
 
 
-def lin_sim(ODE_eq, parameters, init_y, t_final, delta_t, ext_stimuli, ext_stim_method, return_Inflammation = True, return_derivatives=False):
+def lin_sim(ODE_eq, parameters, init_y, t_final, delta_t, ext_stimuli, ext_stim_method, return_Inflammation = True):
     '''
     ARGS:
     ODE_eq : Function argument, first-order derivatives of system output
@@ -1163,8 +1265,6 @@ def lin_sim(ODE_eq, parameters, init_y, t_final, delta_t, ext_stimuli, ext_stim_
                      specific model output (e.g. ext_stim_method[i] == 'ADD' means that for each timestep, the loop will add ext_stimuli[i, timestep] to model_output[i, timestep])
 
     return_Inflammation : Whether model_output should include the state variable I(t)
-
-    return_derivatives : Whether tuple returned by function should include derivative information, will appear in data[1]
 
     OUTPUT:
     data : 3 tuple of form (model_output, derivatives_output, debug_output); if return_derivatives = False, derivative_outputs = 0 (same applies to debug_output)
@@ -1223,12 +1323,46 @@ def lin_sim(ODE_eq, parameters, init_y, t_final, delta_t, ext_stimuli, ext_stim_
 
     return data
             
+def chronic_infection_flagger(N_min, N_max, epsilon, delta_t, model_output, derivative_output):
+    '''
+    The criteria for chronic infection is determined by the following:
 
+        | dN / dt | < epsilon * delta_t
 
-def calculate_I(P_t, A_t, K_t, N_t, theta_N, theta_K, k):
+    Multiplying by delta_t allows the flagger to account for the timestep size when using euler's method
+
+    ARGS:
+    N_min: lower bound for criteria 2
+    N_max: upper bound for criteria 2
+    epsilon: tolerance
+    delta_t: timestep size (Euler's method)
+    model_output: a one-dimensional array containing a time-series sequence of model pathogen outputs (N)
+    derivative_output: a one-dimensional array containing a time-series sequence of pathogen derivative values (dN/dt)
+
+    The length of model_output must match the length of derivative_output
+
+    Returns an array (same length as model_output) of ones and zeros where 1 denotes a timestep where the criteria for chronic infection were met
+    '''
+
+    ret_arr = np.zeros(len(model_output))
+
+    for i in range(len(model_output)):
+        
+        if model_output[i] >= N_min and model_output[i] <= N_max:
+            #print("Hit 1")         # sanity check
+
+            '''if abs(derivative_output[i]) < epsilon * delta_t * model_output[i]:
+                #print("Hit 2")         # sanity check
+                ret_arr[i] = 1'''
+            if abs(derivative_output[i]) < epsilon * delta_t:
+                #print("Hit 2")         # sanity check
+                ret_arr[i] = 1
+        
+        else:
+
+            ret_arr[i] = 0
     
-    return (P_t*(N_t**k/(theta_N**k + N_t**k) + 0.25)*((0.5 * (K_t)/(theta_K + K_t) + 1))) / (A_t*(theta_N**k/(theta_N**k + N_t**k) + 0.25)*(0.75 * (K_t)/(theta_K + K_t) + 1) + P_t*(N_t**k/(theta_N**k + N_t**k) + 0.25)*((0.5 * (K_t)/(theta_K + K_t) + 1)))
-
+    return ret_arr
 
 def event_function(t, y, parameters, stim_time):
     """
@@ -1263,13 +1397,51 @@ def lin_sim_scipy(ODE_eq, parameters, y0, tf, dt, stim_times=[], stim_sizes=[]):
     solution
     '''
 
+
+    event_function.terminal = True
+    t = np.arange(0,tf,dt)
+    data = np.zeros([1,len(y0)])
+    times = np.zeros(1)
+
+    for i,stim_time in enumerate(stim_times):
+        
+        out = solve_ivp(ODE_eq,(t[0],t[-1]),y0,
+                        args=(parameters,stim_time),
+                        events=event_function)
+
+        # save values just before first pert.
+        data = np.concatenate([data,out.y.T])
+        times = np.concatenate([times,out.t])
+
+        # update inputs for next iteration
+        t = np.arange(out.t[-1]+dt,tf,dt)
+        y0 = out.y[:,-1]
+        y0[2] += stim_sizes[i]
+
+    out = solve_ivp(ODE_eq,(t[0],t[-1]),y0,
+                    args=(parameters,stim_time),
+                    events=event_function)
+
+    data = np.concatenate([data,out.y.T])
+    times = np.concatenate([times,out.t])
+
+    return times[1:],data.T[:,1:]
+
+    
+
+    """
+    # start terminal sim
     event_function.terminal = True
 
-    t = np.arange(0,tf,dt)
+    t = np.arange(0,tf,dt)    
     
     out = solve_ivp(ODE_eq,(t[0],t[-1]),y0,
                     args=(parameters,stim_times[0]),
                     events=event_function)
+
+    # terminate on first stim time
+
+    # restart sim
 
     y2 = out.y[:,-1]
     y2[2] += stim_sizes[0]
@@ -1280,9 +1452,43 @@ def lin_sim_scipy(ODE_eq, parameters, y0, tf, dt, stim_times=[], stim_sizes=[]):
                      args=(parameters,stim_times[0]),
                      method='LSODA')
 
+    # terminate on next stim time
+
     data = np.concatenate([out.y.T,out2.y.T])
     t = np.concatenate([out.t,out2.t])
     print(out.t[-1],out2.t[0],out2.t[-1])
 
     return t,data.T
             
+    """
+
+def calculate_I(P_t, A_t, K_t, N_t, theta_N, theta_K, k):
+    
+    return (P_t*(N_t**k/(theta_N**k + N_t**k) + 0.25)*((0.5 * (K_t)/(theta_K + K_t) + 1))) / (A_t*(theta_N**k/(theta_N**k + N_t**k) + 0.25)*(0.75 * (K_t)/(theta_K + K_t) + 1) + P_t*(N_t**k/(theta_N**k + N_t**k) + 0.25)*((0.5 * (K_t)/(theta_K + K_t) + 1)))
+
+def load_hyper_aseptic(file_loc):
+
+    with open(file_loc, mode="r", encoding="utf-8") as file:
+
+        reader = csv.reader(file)
+
+        hyper_from_csv = {}
+        for row in reader:
+            key = row[0]
+            value = row[1]
+
+            if key == 'runs':
+                # 'runs' must be int
+                value = int(value)
+            else:
+                try:
+                    value = float(value)
+                except ValueError:
+                    pass
+
+            hyper_from_csv[key] = value
+
+    print("Hyperparameters successfully read from .csv provided")
+
+    return hyper_from_csv
+
