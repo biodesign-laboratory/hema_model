@@ -163,7 +163,7 @@ def get_default_inits():
     return default_inits
 
 
-def get_default_params():
+def get_default_params():       # can manually change these for quick testing
     default_params = {
         'k_H' : 3,
         'dH' : 0.05,
@@ -291,6 +291,7 @@ def main():
     args = parser.parse_args()
     
     run_number = 'recovery_septic'                # used in file names, doesn't have to be a number
+    aseptic_sim = False                           # whether model will run an aseptic case (necessary because aseptic simulations function slightly different from normal infection sims)
     output_to_csv = args.save_solution
 
     save_init_states = args.save_init_states # save initial conditions to .csv
@@ -313,7 +314,7 @@ def main():
     # the following arguments are used to input artifical quiescent HSPCs, not included in csv
     #################################### hyperparameters here    
 
-    hyp = get_hyp(read_from_hyper_loc,read_from_hyper,run_number,save_hyperparams)
+    hyp = get_hyp(read_from_hyper_loc,read_from_hyper,run_number,save_hyperparams, aseptic_sim)
     
     runs = hyp['runs']
     delta_t = hyp['delta_t']
