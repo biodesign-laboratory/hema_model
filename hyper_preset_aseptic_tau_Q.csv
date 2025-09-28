@@ -1,0 +1,5 @@
+runs,15
+delta_t,0.01
+t_final,672
+parameter_to_increment,tau_Q
+increment_by,5
